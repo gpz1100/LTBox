@@ -17,6 +17,10 @@ set "PYTHON_PTH_FILE_SRC=%TOOLS_DIR%\\python314._pth"
 set "PYTHON_PTH_FILE_DST=%PYTHON_DIR%\\python314._pth"
 set "GETPIP_URL=https://bootstrap.pypa.io/get-pip.py"
 set "GETPIP_PATH=%PYTHON_DIR%\\get-pip.py"
+set "FETCH_VERSION=v0.4.6"
+set "FETCH_URL=https://github.com/gruntwork-io/fetch/releases/download/%FETCH_VERSION%/fetch_windows_amd64.exe"
+set "FETCH_EXE=%TOOLS_DIR%\\fetch.exe"
+
 
 :: ======================================================
 :: Create Directories
@@ -30,7 +34,8 @@ if not exist "%KEY_DIR%" mkdir "%KEY_DIR%"
 echo [*] Checking for Python environment...
 if exist "%PYTHON_DIR%\\python.exe" goto PythonExists
 
-echo [!] Python environment not found. Starting setup...
+echo [!] Python environment not found.
+echo Starting setup...
 
 echo [*] Downloading Python embeddable package (%PYTHON_VERSION%)...
 curl -L "%PYTHON_ZIP_URL%" -o "%PYTHON_ZIP_PATH%"
@@ -51,7 +56,6 @@ if errorlevel 1 (
 
 del "%PYTHON_ZIP_PATH%"
 echo [+] Python environment created successfully.
-
 echo [*] Configuring Python environment...
 if exist "%PYTHON_PTH_FILE_SRC%" (
     copy "%PYTHON_PTH_FILE_SRC%" "%PYTHON_PTH_FILE_DST%" >nul
@@ -78,7 +82,6 @@ if errorlevel 1 (
 
 del "%GETPIP_PATH%"
 echo [+] pip installed successfully.
-
 echo [*] Installing cryptography package...
 "%PYTHON_DIR%\\python.exe" -m pip install cryptography
 if errorlevel 1 (
@@ -87,8 +90,6 @@ if errorlevel 1 (
     exit /b
 )
 echo [+] cryptography installed successfully.
-
-
 echo [*] Installing requests package...
 "%PYTHON_DIR%\\python.exe" -m pip install requests
 if errorlevel 1 (
@@ -97,7 +98,6 @@ if errorlevel 1 (
     exit /b
 )
 echo [+] requests installed successfully.
-
 :PythonExists
 echo [+] Python environment is ready.
 echo.
@@ -108,32 +108,38 @@ echo.
 
 echo --- Downloading Tools ---
 echo.
-
+echo [*] Checking for fetch.exe...
+if exist "%FETCH_EXE%" goto fetch_exists
+echo [!] 'fetch.exe' not found.
+echo Attempting to download...
+curl -L "%FETCH_URL%" -o "%FETCH_EXE%" --fail
+if exist "%FETCH_EXE%" (echo [+] Download successful.) else (echo [!] Download failed.)
+:fetch_exists
+echo.
 echo [*] Checking for avbtool.py...
 if exist "%TOOLS_DIR%\\avbtool.py" goto avbtool_exists
-echo [!] 'avbtool.py' not found. Attempting to download...
+echo [!] 'avbtool.py' not found.
+echo Attempting to download...
 curl -L "https://github.com/LineageOS/android_external_avb/raw/refs/heads/lineage-22.2/avbtool.py" -o "%TOOLS_DIR%\\avbtool.py"
 if exist "%TOOLS_DIR%\\avbtool.py" (echo [+] Download successful.) else (echo [!] Download failed.)
 :avbtool_exists
 echo.
-
 echo [*] Checking for testkey_rsa4096.pem...
 if exist "%KEY_DIR%\\testkey_rsa4096.pem" goto key4096_exists
-echo [!] 'testkey_rsa4096.pem' not found. Attempting to download...
+echo [!] 'testkey_rsa4096.pem' not found.
+echo Attempting to download...
 curl -L "https://github.com/LineageOS/android_external_avb/raw/refs/heads/lineage-22.2/test/data/testkey_rsa4096.pem" -o "%KEY_DIR%\\testkey_rsa4096.pem"
 if exist "%KEY_DIR%\\testkey_rsa4096.pem" (echo [+] Download successful.) else (echo [!] Download failed.)
 :key4096_exists
 echo.
-
 echo [*] Checking for testkey_rsa2048.pem...
 if exist "%KEY_DIR%\\testkey_rsa2048.pem" goto key2048_exists
-echo [!] 'testkey_rsa2048.pem' not found. Attempting to download...
+echo [!] 'testkey_rsa2048.pem' not found.
+echo Attempting to download...
 curl -L "https://github.com/LineageOS/android_external_avb/raw/refs/heads/lineage-22.2/test/data/testkey_rsa2048.pem" -o "%KEY_DIR%\\testkey_rsa2048.pem"
 if exist "%KEY_DIR%\\testkey_rsa2048.pem" (echo [+] Download successful.) else (echo [!] Download failed.)
 :key2048_exists
 echo.
-
-
 :: ======================================================
 :: Finalization
 :: ======================================================

@@ -1,4 +1,3 @@
-# main.py
 import os
 import sys
 import shutil
@@ -6,6 +5,8 @@ import subprocess
 import argparse
 import requests
 import zipfile
+import platform
+import re
 from pathlib import Path
 
 BASE_DIR = Path(__file__).parent.resolve()
@@ -17,9 +18,15 @@ EDIT_VNDRBOOT_PY = TOOLS_DIR / "edit_vndrboot.py"
 PARSE_INFO_PY = TOOLS_DIR / "parse_info.py"
 GET_KERNEL_VER_PY = TOOLS_DIR / "get_kernel_ver.py"
 
-TARGET_KERNEL_VERSION = "6.1.112"
-ANYKERNEL_URL = "https://github.com/WildKernels/GKI_KernelSU_SUSFS/releases/download/v1.5.9-r36/WKSU-13861-android14-6.1.112-2024-11-AnyKernel3.zip"
-ANYKERNEL_ZIP = "AnyKernel3.zip"
+KSU_APK_REPO = "https://github.com/KernelSU-Next/KernelSU-Next"
+KSU_APK_TAG = "v1.1.1"
+
+RELEASE_OWNER = "WildKernels"
+RELEASE_REPO = "GKI_KernelSU_SUSFS"
+RELEASE_TAG = "v1.5.9-r36"
+REPO_URL = f"https://github.com/{RELEASE_OWNER}/{RELEASE_REPO}"
+
+ANYKERNEL_ZIP_FILENAME = "AnyKernel3.zip"
 
 def run_command(command, shell=False, check=True):
     try:
@@ -46,13 +53,25 @@ def run_command(command, shell=False, check=True):
         print(f"Error: Command not found - {command[0]}", file=sys.stderr)
         raise
 
+def get_platform_executable(name):
+    system = platform.system()
+    if system == "Windows":
+        return TOOLS_DIR / f"{name}.exe"
+    elif system == "Linux":
+        return TOOLS_DIR / f"{name}-linux"
+    elif system == "Darwin":
+        return TOOLS_DIR / f"{name}-macos"
+    else:
+        raise RuntimeError(f"Unsupported operating system: {system}")
+
 def check_dependencies():
     print("--- Checking for required files ---")
     dependencies = {
         "Python Environment": PYTHON_EXE,
         "RSA4096 Key": KEY_DIR / "testkey_rsa4096.pem",
         "RSA2048 Key": KEY_DIR / "testkey_rsa2048.pem",
-        "avbtool": AVBTOOL_PY
+        "avbtool": AVBTOOL_PY,
+        "fetch tool": get_platform_executable("fetch")
     }
     for name, path in dependencies.items():
         if not path.exists():
@@ -64,21 +83,36 @@ def check_dependencies():
 
 def patch_boot_with_root():
     print("--- Starting boot.img patching process ---")
-    magiskboot_exe = TOOLS_DIR / "magiskboot.exe"
+    try:
+        magiskboot_exe = get_platform_executable("magiskboot")
+        fetch_exe = get_platform_executable("fetch")
 
-    if not magiskboot_exe.exists():
-        print("[!] 'magiskboot.exe' not found. Attempting to download...")
-        try:
-            url = 'https://github.com/CYRUS-STUDIO/MagiskBootWindows/raw/refs/heads/main/magiskboot.exe'
-            response = requests.get(url, stream=True)
-            response.raise_for_status()
-            with open(magiskboot_exe, 'wb') as f:
-                for chunk in response.iter_content(chunk_size=8192):
-                    f.write(chunk)
-            print("[+] Download successful.")
-        except requests.RequestException as e:
-            print(f"[!] Download failed: {e}. Aborting.")
-            sys.exit(1)
+        if not magiskboot_exe.exists():
+            print(f"[!] '{magiskboot_exe.name}' not found. Attempting to download...")
+            if platform.system() == "Windows":
+                url = 'https://github.com/CYRUS-STUDIO/MagiskBootWindows/raw/refs/heads/main/magiskboot.exe'
+                response = requests.get(url, stream=True)
+                response.raise_for_status()
+                with open(magiskboot_exe, 'wb') as f:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        f.write(chunk)
+                print("[+] Download successful.")
+            else:
+                print(f"[!] Auto-download for {platform.system()} is not supported. Please add it to the 'tools' folder manually.")
+                sys.exit(1)
+
+        if not fetch_exe.exists():
+             print(f"[!] '{fetch_exe.name}' not found. Please run install.bat")
+             sys.exit(1)
+
+
+    except (RuntimeError, requests.RequestException) as e:
+        print(e, file=sys.stderr)
+        sys.exit(1)
+
+    if platform.system() != "Windows":
+        os.chmod(magiskboot_exe, 0o755)
+        os.chmod(fetch_exe, 0o755)
 
     boot_img = BASE_DIR / "boot.img"
     if not boot_img.exists():
@@ -99,55 +133,81 @@ def patch_boot_with_root():
     try:
         shutil.copy(boot_img, work_dir)
 
-        print("\n[1/6] Unpacking boot image...")
+        print("\n[1/8] Unpacking boot image...")
         run_command([str(magiskboot_exe), "unpack", "boot.img"])
         if not (work_dir / "kernel").exists():
             print("[!] Failed to unpack boot.img. The image might be invalid.")
             sys.exit(1)
         print("[+] Unpack successful.")
 
-        print("\n[2/6] Verifying kernel version...")
+        print("\n[2/8] Verifying kernel version...")
         result = run_command([str(PYTHON_EXE), str(GET_KERNEL_VER_PY), "kernel"])
-        extracted_version = result.stdout.strip()
-        print(f"[+] Found version string: {extracted_version}")
-        if not extracted_version.startswith(TARGET_KERNEL_VERSION):
-            print(f"[!] ERROR: Kernel version is NOT {TARGET_KERNEL_VERSION}.")
-            print("Script will now abort to prevent damage.")
-            sys.exit(1)
-        print("[+] Kernel version matches.")
+        full_kernel_string = result.stdout.strip()
+        print(f"[+] Found version string: {full_kernel_string}")
 
-        print("\n[3/6] Downloading GKI Kernel...")
-        try:
-            response = requests.get(ANYKERNEL_URL, stream=True)
-            response.raise_for_status()
-            with open(ANYKERNEL_ZIP, 'wb') as f:
-                 for chunk in response.iter_content(chunk_size=8192):
-                    f.write(chunk)
-            print("[+] Download complete.")
-        except requests.RequestException as e:
-            print(f"[!] Failed to download the kernel zip file: {e}.")
+        kernel_version_match = re.match(r"(\d+\.\d+\.\d+)", full_kernel_string)
+        if not kernel_version_match:
+            print("[!] Could not extract a valid kernel version (e.g., x.y.z) from string.")
+            sys.exit(1)
+        target_kernel_version = kernel_version_match.group(1)
+        print(f"[+] Target kernel version for download: {target_kernel_version}")
+
+        print("\n[3/8] Downloading GKI Kernel with fetch...")
+
+        asset_pattern = f".*{target_kernel_version}.*AnyKernel3.zip"
+
+        fetch_command = [
+            str(fetch_exe),
+            "--repo", REPO_URL,
+            "--tag", RELEASE_TAG,
+            "--release-asset", asset_pattern,
+            "."
+        ]
+
+        run_command(fetch_command)
+
+        downloaded_files = list(Path(".").glob(f"*{target_kernel_version}*AnyKernel3.zip"))
+        if not downloaded_files:
+            print(f"[!] Failed to download AnyKernel3.zip for kernel {target_kernel_version}.")
             sys.exit(1)
 
-        print("\n[4/6] Extracting new kernel image...")
+        downloaded_zip = downloaded_files[0]
+        shutil.move(downloaded_zip, ANYKERNEL_ZIP_FILENAME)
+        print("[+] Download complete.")
+
+
+        print("\n[4/8] Extracting new kernel image...")
         extracted_kernel_dir = work_dir / "extracted_kernel"
-        with zipfile.ZipFile(ANYKERNEL_ZIP, 'r') as zip_ref:
+        with zipfile.ZipFile(ANYKERNEL_ZIP_FILENAME, 'r') as zip_ref:
             zip_ref.extractall(extracted_kernel_dir)
         if not (extracted_kernel_dir / "Image").exists():
             print("[!] 'Image' file not found in the downloaded zip.")
             sys.exit(1)
         print("[+] Extraction successful.")
 
-        print("\n[5/6] Replacing original kernel with the new one...")
+        print("\n[5/8] Replacing original kernel with the new one...")
         shutil.move(str(extracted_kernel_dir / "Image"), "kernel")
         print("[+] Kernel replaced.")
 
-        print("\n[6/6] Repacking boot image...")
+        print("\n[6/8] Repacking boot image...")
         run_command([str(magiskboot_exe), "repack", "boot.img"])
         if not (work_dir / "new-boot.img").exists():
             print("[!] Failed to repack the boot image.")
             sys.exit(1)
         shutil.move("new-boot.img", BASE_DIR / "boot.root.img")
         print("[+] Repack successful.")
+
+        print("\n[7/8] Downloading KernelSU Manager APKs...")
+        ksu_apk_command = [
+            str(fetch_exe),
+            "--repo", KSU_APK_REPO,
+            "--tag", KSU_APK_TAG,
+            "--release-asset", ".*\\.apk",
+            str(BASE_DIR)
+        ]
+        run_command(ksu_apk_command)
+        print(f"[+] KernelSU Manager APKs downloaded to the main directory (if any were found).")
+
 
     finally:
         os.chdir(original_cwd)
@@ -210,7 +270,7 @@ def convert_images(with_root=False):
     img_info = dict(line.split('=', 1) for line in info_proc.stdout.strip().split('\n') if '=' in line)
 
     prop_val_clean = img_info['PROP_VAL'][1:-1]
-    
+
     print("\n--- Adding Hash Footer to vendor_boot ---")
     prop_val_file = BASE_DIR / "prop_val.tmp"
     with open(prop_val_file, "w", encoding='utf-8') as f:
@@ -226,7 +286,7 @@ def convert_images(with_root=False):
         "--prop_from_file", f"{img_info['PROP_KEY']}:{prop_val_file}"
     ]
     run_command(add_hash_footer_cmd)
-    
+
     if prop_val_file.exists():
         prop_val_file.unlink()
     print()
@@ -260,7 +320,7 @@ def convert_images(with_root=False):
                 key = parts[0].split(':')[-1].strip()
                 val = parts[1].strip()[1:-1]
                 boot_props_args.extend(["--prop", f"{key}:{val}"])
-        
+
         print("\n[*] Adding new hash footer to 'boot.root.img'...")
         boot_root_img = BASE_DIR / "boot.root.img"
         add_footer_cmd = [
