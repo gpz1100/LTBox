@@ -482,8 +482,8 @@ def edit_devinfo_persist():
     devinfo_img = BASE_DIR / "devinfo.img"
     persist_img = BASE_DIR / "persist.img"
     
-    if not devinfo_img.exists() or not persist_img.exists():
-        print("[!] Error: 'devinfo.img' and/or 'persist.img' not found. Please place them in the main directory.")
+    if not devinfo_img.exists() and not persist_img.exists():
+        print("[!] Error: 'devinfo.img' and 'persist.img' both not found. Please place at least one in the main directory.")
         sys.exit(1)
         
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -491,8 +491,13 @@ def edit_devinfo_persist():
     backup_critical_dir.mkdir(exist_ok=True)
     
     print(f"[*] Backing up critical images to '{backup_critical_dir.name}'...")
-    shutil.copy(devinfo_img, backup_critical_dir)
-    shutil.copy(persist_img, backup_critical_dir)
+    
+    if devinfo_img.exists():
+        shutil.copy(devinfo_img, backup_critical_dir)
+        print(f"[+] Backed up '{devinfo_img.name}'.")
+    if persist_img.exists():
+        shutil.copy(persist_img, backup_critical_dir)
+        print(f"[+] Backed up '{persist_img.name}'.")
     print("[+] Backup complete.\n")
 
     print(f"[*] Cleaning up old '{OUTPUT_DP_DIR.name}' folder...")
