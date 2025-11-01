@@ -24,7 +24,7 @@ This toolkit is an all-in-one collection of scripts that leverages this flaw to 
 * Lenovo Tab Plus AI (AKA Yoga Pad Pro AI)
 * Lenovo Xiaoxin Pad Pro GT
 
-*...Other recent Lenovo tablets (those released in 2024 or later with Qualcomm chipsets) may also be vulnerable.*
+*...Other recent Lenovo devices (released in 2024 or later with Qualcomm chipsets) may also be vulnerable.*
 
 ## 2. Toolkit Purpose & Features
 
@@ -32,50 +32,56 @@ This toolkit provides an all-in-one solution for the following tasks **without u
 
 1.  **Region Conversion (PRC → ROW)**
     * Converts the region code in `vendor_boot.img` to allow flashing a global (ROW) ROM on a Chinese (PRC) model.
-    * Re-makes the `vbmeta.img` with the AOSP test keys to validate the modified `vendor_boot`.
-2.  **Rooting (via KernelSU)**
+    * Re-signs the `vbmeta.img` with the AOSP test keys to validate the modified `vendor_boot`.
+2.  **Rooting**
     * Patches the stock `boot.img` by replacing the original kernel with [one that includes KernelSU](https://github.com/WildKernels/GKI_KernelSU_SUSFS).
     * Re-signs the patched `boot.img` with AOSP test keys.
 3.  **Region Code Reset**
     * Modifies byte patterns in `devinfo.img` and `persist.img` to reset region-lock settings.
-4.  **EDL Partition Read/Write**
-    * Uses `edl-ng` to read (dump) the `devinfo` and `persist` partitions directly from the device in EDL mode.
-    * Writes (flashes) the patched `devinfo.img` and `persist.img` back to the device in EDL mode.
+4.  **EDL Partition Dump/Write**
+    * Dumps the `devinfo` and `persist` partitions directly from the device in EDL mode.
+    * Flashes the patched `devinfo.img` and `persist.img` back to the device in EDL mode.
 5.  **Anti-Rollback (ARB) Bypass**
     * Patches firmware images (e.g., `boot.img`, `vbmeta_system.img`) that you intend to flash (e.g., for a downgrade).
     * It reads the rollback index from your *currently installed* firmware and forcibly applies that same (higher) index to the *new* firmware, bypassing Anti-Rollback Protection.
 
 ## 3. Prerequisites
 
-Before you begin, place the required stock firmware images into the appropriate folders. All necessary tools (Python, avbtool, etc.) will be downloaded automatically by the scripts.
+Before you begin, place the required firmware images into the correct `input*` folders. The script will guide you if files are missing.
 
-* **For Region Conversion:** Place `vendor_boot.img` and `vbmeta.img` in the main folder.
-* **For Rooting:** Place `boot.img` in the main folder.
-* **For Region Reset:** Place `devinfo.img` and `persist.img` in the main folder (or use `read_edl.bat` to dump them).
-* **For Anti-Rollback Bypass:**
+* **For `Convert ROM` (Menu 1):**
+    * Place `vendor_boot.img` and `vbmeta.img` in the `input` folder.
+
+* **For `Create Rooted boot.img` (Menu 5):**
+    * Place `boot.img` in the `input_root` folder.
+
+* **For `EDL Dump/Patch/Write` (Menu 2, 3, 4):**
+    * Place the EDL loader file (`xbl_s_devprg_ns.melf`) in the `input_dp` folder.
+    * For **Patch (Menu 3)**, you must first place `devinfo.img` and/or `persist.img` in the `input_dp` folder. (You can use **Menu 2** to dump them there).
+
+* **For `Bypass Anti-Rollback` (Menu 6):**
     * `input_current` folder: Place `boot.img` and `vbmeta_system.img` from your **currently installed** firmware.
     * `input_new` folder: Place the `boot.img` and `vbmeta_system.img` from the **new (downgrade) firmware** you wish to flash.
 
 ## 4. How to Use
 
-1.  **Place Images:** Put the necessary `.img` files into the correct folder (see section 3) according to the task you want to perform.
-2.  **Run the Script:** Simply double-click the `.bat` file corresponding to the task you want to perform.
-3.  **Get Results:** After the script finishes, the modified images will be saved in a corresponding `output*` folder (e.g., `output`, `output_root`).
-4.  **Flash the Images:** Flash the new `.img` file(s) from the output folder to your device using `fastboot` or an EDL tool.
+1.  **Place Images:** Put the necessary `.img` files (and loader file, if needed) into the correct folder as described in **Section 3**.
+2.  **Run the Script:** Double-click `start.bat`.
+3.  **Select Task:** Choose an option from the menu. The script will wait for you to place the required files if they are not found.
+4.  **Get Results:** After a script finishes, the modified images will be saved in a corresponding `output*` folder (e.g., `output`, `output_root`, `output_dp`).
+5.  **Flash the Images:** Flash the new `.img` file(s) from the output folder to your device using `fastboot` or an EDL tool.
 
 ## 5. Script Descriptions
 
-* **`vndrboot_vbmeta.bat`**: Handles the `vendor_boot` region conversion (PRC→ROW) and remakes `vbmeta.img`.
-    * *Output: `output` folder*
-* **`root.bat`**: Patches `boot.img` with KernelSU for root access.
-    * *Output: `output_root` folder*
-* **`devinfo_persist.bat`**: Modifies `devinfo.img` and `persist.img` to reset region code.
-    * *Output: `output_dp` folder*
-* **`anti-antirollback.bat`**: Bypasses Anti-Rollback Protection by patching downgrade firmware images.
-    * *Requires: Files in `input_current` and `input_new` folders.*
-    * *Output: `output_anti_rollback` folder*
-* **`read_edl.bat`**: Dumps `devinfo.img` and `persist.img` from your device via EDL mode.
-    * *Output: Main folder*
-* **`write_edl.bat`**: Flashes the modified images from the `output_dp` folder to your device via EDL mode.
-* **`info_image.bat`**: Drag & drop `.img` file(s) or folder(s) onto this script to see AVB (Android Verified Boot) information.
+* **`start.bat`**: This is the main script you will run. It provides a menu to access all major functions.
+    * **Menu 1. Convert ROM (PRC to ROW):** Reads from `input`, saves to `output`.
+    * **Menu 2. Dump devinfo/persist via EDL:** Dumps partitions directly into the `input_dp` folder.
+    * **Menu 3. Patch devinfo/persist (Region Code Reset):** Reads from `input_dp`, saves to `output_dp`.
+    * **Menu 4. Write devinfo/persist via EDL (Flash patched):** Reads patched images from `output_dp` and flashes them.
+    * **Menu 5. Create Rooted boot.img:** Reads from `input_root`, saves to `output_root`.
+    * **Menu 6. Bypass Anti-Rollback:** Reads from `input_current` and `input_new`, saves to `output_anti_rollback`.
+    * **Menu 7. Clean Workspace:** Deletes all `input*` and `output*` folders, temporary files, and downloaded tools (like `fetch.exe`, `edl-ng.exe`, `avb/`). **Keeps `python3` and `backup` folders.**
+    * **Menu 8. Exit:** Closes the script.
+
+* **`info_image.bat`**: A separate utility script. Drag & drop `.img` file(s) or folder(s) onto this script to see AVB (Android Verified Boot) information.
     * *Output: `image_info_*.txt`*
