@@ -58,7 +58,25 @@ if "%CHOICE%"=="3" call :run_task edit_dp "Patch devinfo/persist"
 if "%CHOICE%"=="4" call :run_task write_edl "EDL Write devinfo/persist"
 if "%CHOICE%"=="5" call :run_task root "Root boot.img"
 if "%CHOICE%"=="6" call :run_task anti_rollback "Anti-Rollback Bypass"
-if "%CHOICE%"=="7" call :run_task clean "Workspace Cleanup"
+
+:: --- Modified logic for Choice 7 ---
+if "%CHOICE%"=="7" (
+    cls
+    echo ==========================================================
+    echo  Starting Task: [Workspace Cleanup]...
+    echo ==========================================================
+    echo.
+    "%PYTHON_EXE%" "%MAIN_PY%" clean
+    echo.
+    echo ==========================================================
+    echo  Task [Workspace Cleanup] has completed.
+    echo ==========================================================
+    echo.
+    echo Press any key to exit...
+    pause > nul
+    goto :cleanup
+)
+
 if "%CHOICE%"=="8" goto :cleanup
 
 :: Handle invalid input
