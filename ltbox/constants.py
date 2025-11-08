@@ -65,7 +65,7 @@ KEY_MAP = {
 COUNTRY_CODES = {
     "AE": "United Arab Emirates", "AM": "Armenia", "AR": "Argentina", "AT": "Austria", "AU": "Australia",
     "AZ": "Azerbaijan", "BE": "Belgium", "BG": "Bulgaria", "BH": "Bahrain", "BR": "Brazil",
-    "CA": "Canada", "CH": "Switzerland", "CL": "Chile", "CO": "Colombia", "CR": "Costa Rica",
+    "CA": "Canada", "CH": "Switzerland", "CL": "Chile", "CN": "China", "CO": "Colombia", "CR": "Costa Rica",
     "CY": "Cyprus", "CZ": "Czech Republic", "DE": "Germany", "DK": "Denmark", "EC": "Ecuador",
     "EE": "Estonia", "EG": "Egypt", "ES": "Spain", "FI": "Finland", "FR": "France",
     "GB": "United Kingdom", "GE": "Georgia", "GH": "Ghana", "GR": "Greece", "GT": "Guatemala",
