@@ -528,7 +528,7 @@ def _compare_rollback_indices():
         
     print("\n[*] Attempting to read 'boot' partition...")
     try:
-        device.edl_read_part(EDL_LOADER_FILE, "boot", boot_out)
+        device.edl_read_part(EDL_LOADER_FILE, "boot_a", boot_out)
         print(f"[+] Successfully read 'boot' to '{boot_out}'.")
     except (subprocess.CalledProcessError, FileNotFoundError) as e:
         print(f"[!] Failed to read 'boot': {e}", file=sys.stderr)
@@ -536,7 +536,7 @@ def _compare_rollback_indices():
 
     print("\n[*] Attempting to read 'vbmeta_system' partition...")
     try:
-        device.edl_read_part(EDL_LOADER_FILE, "vbmeta_system", vbmeta_out)
+        device.edl_read_part(EDL_LOADER_FILE, "vbmeta_system_a", vbmeta_out)
         print(f"[+] Successfully read 'vbmeta_system' to '{vbmeta_out}'.")
     except (subprocess.CalledProcessError, FileNotFoundError) as e:
         print(f"[!] Failed to read 'vbmeta_system': {e}", file=sys.stderr)
@@ -671,11 +671,11 @@ def write_anti_rollback(skip_reset=False):
     
     try:
         print(f"\n[*] Attempting to write 'boot' partition...")
-        device.edl_write_part(EDL_LOADER_FILE, "boot", boot_img)
+        device.edl_write_part(EDL_LOADER_FILE, "boot_a", boot_img)
         print("[+] Successfully wrote 'boot'.")
 
         print(f"\n[*] Attempting to write 'vbmeta_system' partition...")
-        device.edl_write_part(EDL_LOADER_FILE, "vbmeta_system", vbmeta_img)
+        device.edl_write_part(EDL_LOADER_FILE, "vbmeta_system_a", vbmeta_img)
         print("[+] Successfully wrote 'vbmeta_system'.")
 
         if not skip_reset:
