@@ -13,6 +13,7 @@ if platform.system() == "Windows":
 
 try:
     from ltbox import utils, actions, workflow
+    from ltbox import constants, imgpatch
 except ImportError as e:
     print(f"[!] Error: Failed to import 'ltbox' package.", file=sys.stderr)
     print(f"[!] Details: {e}", file=sys.stderr)
@@ -131,7 +132,7 @@ def run_task(command, title, skip_adb=False):
             log_file_handle.close()
 
         print("  " + "=" * 58)
-        print(f"    Task [{title}] has completed.")
+        print(f"  Task [{title}] has completed.")
         print("  " + "=" * 58, "\n")
         
         if command == "clean":
@@ -143,6 +144,48 @@ def run_task(command, title, skip_adb=False):
             os.system("pause > nul")
         else:
             input()
+
+def run_info_scan(paths):
+    print("--- Starting Image Info Scan ---")
+    
+    PYTHON_EXE = constants.PYTHON_EXE
+    AVBTOOL_PY = constants.AVBTOOL_PY
+    BASE_DIR = constants.BASE_DIR
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_filename = BASE_DIR / f"image_info_{timestamp}.txt"
+    
+    files_to_scan = []
+    for path_str in paths:
+        p = Path(path_str)
+        if p.is_dir():
+            files_to_scan.extend(p.rglob("*.img"))
+        elif p.is_file() and p.suffix.lower() == '.img':
+            files_to_scan.append(p)
+    
+    if not files_to_scan:
+        print("[!] No .img files found in the provided paths.", file=sys.stderr)
+        return
+
+    print(f"[*] Found {len(files_to_scan)} image(s) to scan.")
+    
+    with open(log_filename, 'w', encoding='utf-8') as log_file:
+        for f in files_to_scan:
+            cmd = [str(PYTHON_EXE), str(AVBTOOL_PY), "info_image", "--image", str(f)]
+            log_file.write(f"--- Info for: {f.resolve()} ---\n\n")
+            print(f"[*] Scanning: {f.name}...")
+            try:
+                result = utils.run_command(cmd, capture=True, check=False)
+                log_file.write(result.stdout)
+                log_file.write(result.stderr)
+                log_file.write("\n" + "="*70 + "\n\n")
+            except Exception as e:
+                error_msg = f"[!] Failed to scan {f.name}: {e}\n"
+                print(error_msg, file=sys.stderr)
+                log_file.write(error_msg)
+    
+    print(f"\n--- Process Complete ---")
+    print(f"[*] Info saved to: {log_filename.name}")
 
 def advanced_menu(skip_adb):
     while True:
@@ -245,4 +288,15 @@ def main():
 
 if __name__ == "__main__":
     setup_console()
-    main()
+    
+    if len(sys.argv) > 1 and sys.argv[1].lower() == 'info':
+        if len(sys.argv) > 2:
+            run_info_scan(sys.argv[2:])
+        else:
+            print("[!] No files or folders were dragged onto the script.", file=sys.stderr)
+            print("[!] Please drag and drop .img files or folders.", file=sys.stderr)
+        
+        if platform.system() == "Windows":
+            os.system("pause")
+    else:
+        main()
