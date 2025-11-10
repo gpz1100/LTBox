@@ -26,44 +26,37 @@ def extract_image_avb_info(image_path):
     info = {}
     props_args = []
 
-    partition_size_match = re.search(r"^Image size:\s*(\d+)\s*bytes", output, re.MULTILINE)
-    if partition_size_match:
-        info['partition_size'] = partition_size_match.group(1)
-    
-    data_size_match = re.search(r"Original image size:\s*(\d+)\s*bytes", output)
-    if data_size_match:
-        info['data_size'] = data_size_match.group(1)
-    else:
-        desc_size_match = re.search(r"^\s*Image Size:\s*(\d+)\s*bytes", output, re.MULTILINE)
-        if desc_size_match:
-            info['data_size'] = desc_size_match.group(1)
-
-    patterns = {
-        'name': r"Partition Name:\s*(\S+)",
-        'salt': r"Salt:\s*([0-9a-fA-F]+)",
-        'algorithm': r"Algorithm:\s*(\S+)",
-        'pubkey_sha1': r"Public key \(sha1\):\s*([0-9a-fA-F]+)",
-    }
-    
-    header_section = output.split('Descriptors:')[0]
-    rollback_match = re.search(r"Rollback Index:\s*(\d+)", header_section)
-    if rollback_match:
-        info['rollback'] = rollback_match.group(1)
-        
-    flags_match = re.search(r"Flags:\s*(\d+)", header_section)
-    if flags_match:
-        info['flags'] = flags_match.group(1)
-        if output: 
-            print(f"[Info] Parsed Flags: {info['flags']}")
-        
-    for key, pattern in patterns.items():
-        if key not in info:
-            match = re.search(pattern, output)
-            if match:
-                info[key] = match.group(1)
+    header_section_processed = False
 
     for line in output.split('\n'):
-        if line.strip().startswith("Prop:"):
+        line_strip = line.strip()
+        
+        if not header_section_processed:
+            if line_strip.startswith("Rollback Index:"):
+                info['rollback'] = line_strip.split()[-1]
+            elif line_strip.startswith("Flags:"):
+                info['flags'] = line_strip.split()[-1]
+                if output:
+                    print(f"[Info] Parsed Flags: {info['flags']}")
+            elif line_strip.startswith("Descriptors:"):
+                header_section_processed = True
+        
+        if line_strip.startswith("Image size:"):
+            info['partition_size'] = line_strip.split()[2]
+        elif line_strip.startswith("Original image size:"):
+            info['data_size'] = line_strip.split()[3]
+        elif line_strip.startswith("Image Size:"):
+            if 'data_size' not in info:
+                info['data_size'] = line_strip.split()[2]
+        elif line_strip.startswith("Partition Name:"):
+            info['name'] = line_strip.split()[-1]
+        elif line_strip.startswith("Salt:"):
+            info['salt'] = line_strip.split()[-1]
+        elif line_strip.startswith("Algorithm:"):
+            info['algorithm'] = line_strip.split()[-1]
+        elif line_strip.startswith("Public key (sha1):"):
+            info['pubkey_sha1'] = line_strip.split()[-1]
+        elif line_strip.startswith("Prop:"):
             parts = line.split('->')
             key = parts[0].split(':')[-1].strip()
             val = parts[1].strip()[1:-1]
