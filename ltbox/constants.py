@@ -58,7 +58,6 @@ EDL_NG_REPO_URL = "https://github.com/strongtz/edl-ng"
 EDL_NG_TAG = "v1.4.1"
 EDL_LOADER_FILENAME = "xbl_s_devprg_ns.melf"
 EDL_LOADER_FILE = IMAGE_DIR / EDL_LOADER_FILENAME 
-EDL_LOADER_FILE_IMAGE = IMAGE_DIR / EDL_LOADER_FILENAME
 
 # --- AVB Keys ---
 KEY_MAP = {
