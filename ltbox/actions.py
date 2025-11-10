@@ -845,9 +845,8 @@ def flash_edl(skip_reset=False, skip_reset_edl=False, skip_dp=False):
     print("\n[*] Copying patched files to 'image' folder (overwriting)...")
     output_folders_to_copy = [
         OUTPUT_DIR, 
-        OUTPUT_ROOT_DIR, 
         OUTPUT_ANTI_ROLLBACK_DIR,
-        OUTPUT_XML_DIR 
+        OUTPUT_XML_DIR
     ]
     
     copied_count = 0
