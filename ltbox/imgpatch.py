@@ -330,14 +330,16 @@ def generate(salt):
 
 def decrypt_file(fi_path, fo_path):
     try:
-        buf = open(fi_path, "rb").read()
-        iv = buf[0:16]
-        salt = buf[16:32]
+        with open(fi_path, "rb") as fi:
+            iv = fi.read(16)
+            salt = fi.read(16)
+            encrypted_body = fi.read()
+
         key = generate(salt)
 
         cipher = Cipher(algorithms.AES(key), modes.CBC(iv))
         decryptor = cipher.decryptor()
-        plain = decryptor.update(buf[32:]) + decryptor.finalize()
+        plain = decryptor.update(encrypted_body) + decryptor.finalize()
 
         original_size = struct.unpack('<q', plain[0:8])[0]
         signature = plain[8:16]
@@ -351,7 +353,9 @@ def decrypt_file(fi_path, fo_path):
             print("Broken file.")
             return False
 
-        open(fo_path, "wb").write(body)
+        with open(fo_path, "wb") as fo:
+            fo.write(body)
+            
         print("Successfully decrypted.", original_size, "bytes")
         return True
 
