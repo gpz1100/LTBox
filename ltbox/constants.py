@@ -32,6 +32,7 @@ OUTPUT_XML_DIR = BASE_DIR / "output_xml"
 # --- Executable/Script Paths ---
 PYTHON_EXE = PYTHON_DIR / "python.exe"
 ADB_EXE = PLATFORM_TOOLS_DIR / "adb.exe"
+FASTBOOT_EXE = PLATFORM_TOOLS_DIR / "fastboot.exe"
 AVBTOOL_PY = AVB_DIR / "avbtool.py"
 EDIT_IMAGES_PY = LTBOX_DIR / "edit_images.py"
 GET_KERNEL_VER_PY = LTBOX_DIR / "get_kernel_ver.py"

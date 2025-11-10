@@ -577,105 +577,51 @@ def write_edl(skip_reset=False, skip_reset_edl=False):
 
     print("\n--- EDL Write Process Finished ---")
 
-def _compare_rollback_indices(active_slot_suffix=None):
-    print("\n--- [STEP 1] Dumping Current Firmware via EDL ---")
-    INPUT_CURRENT_DIR.mkdir(exist_ok=True)
-    boot_a_out = INPUT_CURRENT_DIR / "boot_a.img"
-    vbmeta_a_out = INPUT_CURRENT_DIR / "vbmeta_system_a.img"
-    boot_b_out = INPUT_CURRENT_DIR / "boot_b.img"
-    vbmeta_b_out = INPUT_CURRENT_DIR / "vbmeta_system_b.img"
-
-    print(f"--- Waiting for EDL Loader File ---")
-    required_loader = [EDL_LOADER_FILENAME]
-    loader_prompt = (
-        f"[REQUIRED] Place the EDL loader file ('{EDL_LOADER_FILENAME}')\n"
-        f"         into the '{IMAGE_DIR.name}' folder to dump current firmware."
-    )
-    utils.wait_for_files(IMAGE_DIR, required_loader, loader_prompt)
-    print(f"[+] Loader file '{EDL_LOADER_FILE.name}' found in '{IMAGE_DIR.name}'.")
-
-    device.wait_for_edl()
-        
-    print("\n[*] Attempting to read 'boot_a' partition...")
-    try:
-        device.edl_read_part(EDL_LOADER_FILE, "boot_a", boot_a_out)
-        print(f"[+] Successfully read 'boot_a' to '{boot_a_out}'.")
-    except (subprocess.CalledProcessError, FileNotFoundError) as e:
-        print(f"[!] Failed to read 'boot_a': {e}", file=sys.stderr)
-        raise 
-
-    print("\n[*] Attempting to read 'vbmeta_system_a' partition...")
-    try:
-        device.edl_read_part(EDL_LOADER_FILE, "vbmeta_system_a", vbmeta_a_out)
-        print(f"[+] Successfully read 'vbmeta_system_a' to '{vbmeta_a_out}'.")
-    except (subprocess.CalledProcessError, FileNotFoundError) as e:
-        print(f"[!] Failed to read 'vbmeta_system_a': {e}", file=sys.stderr)
-        raise 
+def read_anti_rollback(fastboot_output=None):
+    print("--- Anti-Rollback Status Check ---")
+    utils.check_dependencies()
     
-    if active_slot_suffix == "_b":
-        print("\n[*] Active slot is _b. Attempting to read 'boot_b' partition...")
-        try:
-            device.edl_read_part(EDL_LOADER_FILE, "boot_b", boot_b_out)
-            print(f"[+] Successfully read 'boot_b' to '{boot_b_out}'.")
-        except (subprocess.CalledProcessError, FileNotFoundError) as e:
-            print(f"[!] Failed to read 'boot_b': {e}", file=sys.stderr)
-            print("[!] Warning: Could not read _b partition. Will proceed using _a slot index only.")
-    
-        print("\n[*] Active slot is _b. Attempting to read 'vbmeta_system_b' partition...")
-        try:
-            device.edl_read_part(EDL_LOADER_FILE, "vbmeta_system_b", vbmeta_b_out)
-            print(f"[+] Successfully read 'vbmeta_system_b' to '{vbmeta_b_out}'.")
-        except (subprocess.CalledProcessError, FileNotFoundError) as e:
-            print(f"[!] Failed to read 'vbmeta_system_b': {e}", file=sys.stderr)
-            print("[!] Warning: Could not read _b partition. Will proceed using _a slot index only.")
-        
-    print("\n--- [STEP 1] Dump complete ---")
-    
-    print("\n--- [STEP 2] Comparing Rollback Indices ---")
-    print("\n[*] Extracting current ROM's rollback indices...")
-    current_boot_rb_a = 0
-    current_vbmeta_rb_a = 0
-    current_boot_rb_b = 0
-    current_vbmeta_rb_b = 0
-    
-    try:
-        current_boot_info_a = imgpatch.extract_image_avb_info(boot_a_out)
-        current_boot_rb_a = int(current_boot_info_a.get('rollback', '0'))
-        
-        current_vbmeta_info_a = imgpatch.extract_image_avb_info(vbmeta_a_out)
-        current_vbmeta_rb_a = int(current_vbmeta_info_a.get('rollback', '0'))
-        
-        if boot_b_out.exists() and vbmeta_b_out.exists():
-            print("[*] Extracting slot _b rollback indices...")
-            current_boot_info_b = imgpatch.extract_image_avb_info(boot_b_out)
-            current_boot_rb_b = int(current_boot_info_b.get('rollback', '0'))
-            
-            current_vbmeta_info_b = imgpatch.extract_image_avb_info(vbmeta_b_out)
-            current_vbmeta_rb_b = int(current_vbmeta_info_b.get('rollback', '0'))
-            
-    except Exception as e:
-        print(f"[!] Error reading current image info: {e}. Please check files.", file=sys.stderr)
+    if not fastboot_output:
+        print("[!] Fastboot output was not provided. Skipping ARB check.")
+        print(f"\n--- Status Check Complete: ERROR ---")
         return 'ERROR', 0, 0
 
-    current_boot_rb = max(current_boot_rb_a, current_boot_rb_b)
-    current_vbmeta_rb = max(current_vbmeta_rb_a, current_vbmeta_rb_b)
-
-    print(f"  > Current ROM's Boot Index (Slot A): {current_boot_rb_a}")
-    if boot_b_out.exists():
-        print(f"  > Current ROM's Boot Index (Slot B): {current_boot_rb_b}")
-    print(f"  > Current ROM's VBMeta System Index (Slot A): {current_vbmeta_rb_a}")
-    if vbmeta_b_out.exists():
-        print(f"  > Current ROM's VBMeta System Index (Slot B): {current_vbmeta_rb_b}")
+    print("\n--- [STEP 1] Parsing Rollback Indices from Fastboot ---")
     
-    print(f"\n  > Using MAX Boot Index: {current_boot_rb}")
-    print(f"  > Using MAX VBMeta System Index: {current_vbmeta_rb}")
+    current_boot_rb = 0
+    current_vbmeta_rb = 0
+    
+    try:
+        boot_rb_match = re.search(r"\(bootloader\)\s*stored_rollback_index:2\s*=\s*(\S+)", fastboot_output, re.MULTILINE)
+        vbmeta_rb_match = re.search(r"\(bootloader\)\s*stored_rollback_index:3\s*=\s*(\S+)", fastboot_output, re.MULTILINE)
+        
+        if not boot_rb_match:
+            raise ValueError("Could not find 'stored_rollback_index:2' (boot) in fastboot output.")
+        if not vbmeta_rb_match:
+            raise ValueError("Could not find 'stored_rollback_index:3' (vbmeta_system) in fastboot output.")
+        
+        current_boot_rb_hex = boot_rb_match.group(1)
+        current_vbmeta_rb_hex = vbmeta_rb_match.group(1)
 
+        current_boot_rb = int(current_boot_rb_hex, 16)
+        current_vbmeta_rb = int(current_vbmeta_rb_hex, 16)
+        
+    except Exception as e:
+        print(f"[!] Error parsing fastboot output: {e}", file=sys.stderr)
+        print(f"\n--- Status Check Complete: ERROR ---")
+        return 'ERROR', 0, 0
+
+    print(f"  > Current ROM's Boot Index (from fastboot): {current_boot_rb} (Hex: {current_boot_rb_hex})")
+    print(f"  > Current ROM's VBMeta System Index (from fastboot): {current_vbmeta_rb} (Hex: {current_vbmeta_rb_hex})")
+
+    print("\n--- [STEP 2] Comparing New ROM Indices ---")
     print("\n[*] Extracting new ROM's rollback indices (from 'image' folder)...")
     new_boot_img = IMAGE_DIR / "boot.img"
     new_vbmeta_img = IMAGE_DIR / "vbmeta_system.img"
 
     if not new_boot_img.exists() or not new_vbmeta_img.exists():
         print(f"[!] Error: 'boot.img' or 'vbmeta_system.img' not found in '{IMAGE_DIR.name}' folder.")
+        print(f"\n--- Status Check Complete: MISSING_NEW ---")
         return 'MISSING_NEW', 0, 0
         
     new_boot_rb = 0
@@ -688,6 +634,7 @@ def _compare_rollback_indices(active_slot_suffix=None):
         new_vbmeta_rb = int(new_vbmeta_info.get('rollback', '0'))
     except Exception as e:
         print(f"[!] Error reading new image info: {e}. Please check files.", file=sys.stderr)
+        print(f"\n--- Status Check Complete: ERROR ---")
         return 'ERROR', 0, 0
 
     print(f"  > New ROM's Boot Index: {new_boot_rb}")
@@ -695,24 +642,15 @@ def _compare_rollback_indices(active_slot_suffix=None):
 
     if new_boot_rb < current_boot_rb or new_vbmeta_rb < current_vbmeta_rb:
         print("\n[!] Downgrade detected! Anti-Rollback patching is REQUIRED.")
-        return 'NEEDS_PATCH', current_boot_rb, current_vbmeta_rb
+        status = 'NEEDS_PATCH'
     else:
         print("\n[+] Indices are same or higher. No Anti-Rollback patch needed.")
-        return 'MATCH', 0, 0
-
-def read_anti_rollback(active_slot_suffix=None):
-    print("--- Anti-Rollback Status Check ---")
-    utils.check_dependencies()
+        status = 'MATCH'
     
-    try:
-        status, boot_rb, vbmeta_rb = _compare_rollback_indices(active_slot_suffix=active_slot_suffix)
-        print(f"\n--- Status Check Complete: {status} ---")
-        return status, boot_rb, vbmeta_rb
-    except Exception as e:
-        print(f"\n[!] An error occurred during status check: {e}", file=sys.stderr)
-        return 'ERROR', 0, 0
+    print(f"\n--- Status Check Complete: {status} ---")
+    return status, current_boot_rb, current_vbmeta_rb
 
-def patch_anti_rollback(active_slot_suffix=None, comparison_result=None):
+def patch_anti_rollback(fastboot_output=None, comparison_result=None):
     print("--- Anti-Rollback Patcher ---")
     utils.check_dependencies()
 
@@ -726,7 +664,7 @@ def patch_anti_rollback(active_slot_suffix=None, comparison_result=None):
             status, current_boot_rb, current_vbmeta_rb = comparison_result
         else:
             print("[*] No pre-computed status found, running check...")
-            status, current_boot_rb, current_vbmeta_rb = _compare_rollback_indices(active_slot_suffix=active_slot_suffix)
+            status, current_boot_rb, current_vbmeta_rb = read_anti_rollback(fastboot_output=fastboot_output)
 
         if status != 'NEEDS_PATCH':
             print("\n[!] No patching is required or files are missing. Aborting patch.")

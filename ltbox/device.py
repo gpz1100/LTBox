@@ -73,6 +73,68 @@ def reboot_to_edl(skip_adb=False):
         print(f"[!] Failed to send reboot command: {e}", file=sys.stderr)
         print("[!] Please reboot to EDL manually if it fails.")
 
+def reboot_to_bootloader(skip_adb=False):
+    if skip_adb:
+        print("[!] Skipping ADB connection as requested.")
+        return
+    print("[*] Attempting to reboot device to Bootloader mode via ADB...")
+    try:
+        utils.run_command([str(ADB_EXE), "reboot", "bootloader"])
+        print("[+] Reboot command sent. Please wait for the device to enter bootloader mode.")
+    except Exception as e:
+        print(f"[!] Failed to send reboot command: {e}", file=sys.stderr)
+        raise
+
+# --- Fastboot Device Handling ---
+def wait_for_fastboot():
+    print("\n--- WAITING FOR FASTBOOT DEVICE ---")
+    try:
+        utils.run_command([str(FASTBOOT_EXE), "wait-for-device"])
+        print("[+] Fastboot device connected.")
+    except Exception as e:
+        print(f"[!] Error waiting for Fastboot device: {e}", file=sys.stderr)
+        raise
+
+def fastboot_reboot_system():
+    print("[*] Attempting to reboot device to System via Fastboot...")
+    try:
+        utils.run_command([str(FASTBOOT_EXE), "reboot"])
+        print("[+] Reboot command sent.")
+    except Exception as e:
+        print(f"[!] Failed to send reboot command: {e}", file=sys.stderr)
+        
+def get_fastboot_vars(skip_adb=False):
+    if skip_adb:
+        print("[!] Skipping fastboot operations as requested by Skip ADB setting.")
+        return None
+    
+    print("\n" + "="*61)
+    print("  Rebooting to Bootloader for Rollback Check")
+    print("="*61)
+    reboot_to_bootloader(skip_adb=skip_adb)
+    print("[*] Waiting for 10 seconds for device to enter bootloader mode...")
+    time.sleep(10)
+    
+    wait_for_fastboot()
+    
+    print("[*] Reading rollback indices via fastboot...")
+    try:
+        result = utils.run_command([str(FASTBOOT_EXE), "getvar", "all"], capture=True, check=False)
+        output = result.stdout + "\n" + result.stderr
+        
+        print("[*] Rebooting back to system...")
+        fastboot_reboot_system()
+        
+        return output
+    except Exception as e:
+        print(f"[!] Failed to get fastboot variables: {e}", file=sys.stderr)
+        print("[!] Attempting to reboot system anyway...")
+        try:
+            fastboot_reboot_system()
+        except Exception:
+            pass
+        raise
+        
 # --- EDL Device Handling ---
 def _ensure_edl_ng():
     if platform.system() != "Windows":

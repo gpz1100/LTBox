@@ -30,7 +30,7 @@ def patch_all(wipe=0, skip_adb=False):
         print("\n--- [NO WIPE MODE] Starting Automated Update & Flash ROW Firmware Process ---")
     
     print("\n" + "="*61)
-    print("  STEP 2/9: Waiting for ADB Connection")
+    print("  STEP 2/9: Waiting for ADB Connection & Getting Device Info")
     print("="*61)
     device.wait_for_adb(skip_adb=skip_adb)
     device_model = device.get_device_model(skip_adb=skip_adb)
@@ -39,7 +39,14 @@ def patch_all(wipe=0, skip_adb=False):
     
     active_slot_suffix = device.get_active_slot_suffix(skip_adb=skip_adb)
     
-    print("\n--- [STEP 2/9] ADB Device Found SUCCESS ---")
+    fastboot_output = device.get_fastboot_vars(skip_adb=skip_adb)
+    if not fastboot_output and not skip_adb:
+        raise SystemExit("Failed to get fastboot variables for ARB check.")
+
+    print("\n--- [STEP 2/9] ADB/Fastboot Checks SUCCESS ---")
+    print("[*] Device will boot back to system. Waiting for ADB connection again...")
+    device.wait_for_adb(skip_adb=skip_adb)
+    print("[+] ADB device re-connected.")
     
     print("\n--- [STEP 3/9] Waiting for RSA Firmware 'image' folder ---")
     prompt = (
@@ -95,8 +102,8 @@ def patch_all(wipe=0, skip_adb=False):
         print("\n" + "="*61)
         print("  STEP 8/9: Checking and Patching Anti-Rollback")
         print("="*61)
-        arb_status_result = actions.read_anti_rollback(active_slot_suffix=active_slot_suffix)
-        actions.patch_anti_rollback(active_slot_suffix=active_slot_suffix, comparison_result=arb_status_result)
+        arb_status_result = actions.read_anti_rollback(fastboot_output=fastboot_output)
+        actions.patch_anti_rollback(comparison_result=arb_status_result)
         print("\n--- [STEP 8/9] Anti-Rollback Check/Patch SUCCESS ---")
         
         print("\n" + "="*61)
