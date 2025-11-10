@@ -57,6 +57,8 @@ def patch_all(wipe=0, skip_adb=False):
     utils.wait_for_directory(IMAGE_DIR, prompt)
     print("[+] 'image' folder found.")
     
+    skip_dp_workflow = False
+    
     try:
         print("\n" + "="*61)
         print("  STEP 4/9: Converting Firmware (PRC to ROW) & Validating Model")
@@ -73,31 +75,24 @@ def patch_all(wipe=0, skip_adb=False):
         print("\n" + "="*61)
         print("  STEP 6/9: Dumping devinfo/persist for patching")
         print("="*61)
-        actions.read_edl(skip_adb=skip_adb)
+        dump_status = actions.read_edl(skip_adb=skip_adb)
+        if dump_status == "SKIP_DP":
+            skip_dp_workflow = True
+            print("[!] Skipping devinfo/persist patching and flashing steps.")
         print("\n--- [STEP 6/9] Dump SUCCESS ---")
         
-        print("\n[*] Verifying dumped devinfo and persist images...")
-        devinfo_dump_path = BACKUP_DIR / "devinfo.img"
-        persist_dump_path = BACKUP_DIR / "persist.img"
+        
+        if not skip_dp_workflow:
+            print("\n" + "="*61)
+            print("  STEP 7/9: Patching devinfo/persist")
+            print("="*61)
+            actions.edit_devinfo_persist()
+            print("\n--- [STEP 7/9] Patching SUCCESS ---")
+        else:
+            print("\n" + "="*61)
+            print("  STEP 7/9: Patching devinfo/persist (SKIPPED)")
+            print("="*61)
 
-        if not devinfo_dump_path.exists() or not persist_dump_path.exists():
-            print("\n" + "!" * 61)
-            print("  ERROR: Dump verification failed.")
-            print("  'devinfo.img' or 'persist.img' (or both) are missing")
-            print(f"  from the '{BACKUP_DIR.name}' folder after the dump operation.")
-            print("\n  This often indicates a problem with the")
-            print("  Qualcomm QDLoader 9008 driver or a faulty USB connection.")
-            print("  Please check drivers in Device Manager and try again.")
-            print("!" * 61)
-            raise SystemExit("EDL dump verification failed")
-        
-        print("[+] Dump verification successful.")
-        
-        print("\n" + "="*61)
-        print("  STEP 7/9: Patching devinfo/persist")
-        print("="*61)
-        actions.edit_devinfo_persist()
-        print("\n--- [STEP 7/9] Patching SUCCESS ---")
         
         print("\n" + "="*61)
         print("  STEP 8/9: Checking and Patching Anti-Rollback")
@@ -110,7 +105,7 @@ def patch_all(wipe=0, skip_adb=False):
         print("  [FINAL STEP 9/9] Flashing All Images via EDL")
         print("="*61)
         print("The device will now be flashed with all modified images.")
-        actions.flash_edl(skip_reset_edl=True) 
+        actions.flash_edl(skip_reset_edl=True, skip_dp=skip_dp_workflow) 
         
         print("\n" + "=" * 61)
         print("  FULL PROCESS COMPLETE!")

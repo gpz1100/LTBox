@@ -482,9 +482,54 @@ def read_edl(skip_adb=False):
     except (subprocess.CalledProcessError, FileNotFoundError) as e:
         print(f"[!] Failed to read 'persist': {e}", file=sys.stderr)
 
+    devinfo_size = os.path.getsize(devinfo_out) if devinfo_out.exists() else 0
+    persist_size = os.path.getsize(persist_out) if persist_out.exists() else 0
+    
+    DEVINFO_MIN_SIZE = 4 * 1024
+    PERSIST_MIN_SIZE = 32 * 1024 * 1024
+    
+    dump_error = False
+    if devinfo_out.exists() and devinfo_size < DEVINFO_MIN_SIZE:
+        print(f"[!] Error: Dumped 'devinfo.img' is too small ({devinfo_size} bytes). Expected at least 4KB.")
+        dump_error = True
+    elif not devinfo_out.exists():
+         print(f"[!] Error: 'devinfo.img' failed to dump (file not found).")
+         dump_error = True
+    
+    if persist_out.exists() and persist_size < PERSIST_MIN_SIZE:
+        print(f"[!] Error: Dumped 'persist.img' is too small ({persist_size} bytes). Expected at least 32MB.")
+        dump_error = True
+    elif not persist_out.exists():
+         print(f"[!] Error: 'persist.img' failed to dump (file not found).")
+         dump_error = True
+
+    if dump_error:
+        print("\n[!] An error occurred during the EDL dump. The files may be corrupt.")
+        print("    Please choose an option:")
+        print("    1. Skip devinfo/persist steps (Continue workflow)")
+        print("    2. Abort & stay in EDL mode")
+        print("    3. Abort & reboot to system")
+        
+        choice = ""
+        while choice not in ['1', '2', '3']:
+            choice = input("    Enter your choice (1, 2, or 3): ").lower().strip()
+        
+        if choice == '1':
+            print("[*] Skipping devinfo/persist steps...")
+            return "SKIP_DP"
+        elif choice == '2':
+            print("[*] Aborting. Staying in EDL mode...")
+            device.edl_reset(EDL_LOADER_FILE, mode="edl")
+            raise SystemExit("EDL dump failed, staying in EDL mode.")
+        elif choice == '3':
+            print("[*] Aborting. Rebooting to System...")
+            device.edl_reset(EDL_LOADER_FILE)
+            raise SystemExit("EDL dump failed, rebooting to system.")
+
     print(f"\n--- EDL Read Process Finished ---")
     print(f"[*] Files have been saved to the '{BACKUP_DIR.name}' folder.")
     print(f"[*] You can now run 'Patch devinfo/persist' (Menu 3) to patch them.")
+    return "SUCCESS"
 
 
 def write_edl(skip_reset=False, skip_reset_edl=False):
@@ -706,7 +751,7 @@ def write_anti_rollback(skip_reset=False):
     
     print("\n--- Anti-Rollback Write Process Finished ---")
 
-def flash_edl(skip_reset=False, skip_reset_edl=False):
+def flash_edl(skip_reset=False, skip_reset_edl=False, skip_dp=False):
     print("--- Starting Full EDL Flash Process ---")
     
     if not IMAGE_DIR.is_dir() or not any(IMAGE_DIR.iterdir()):
@@ -789,26 +834,29 @@ def flash_edl(skip_reset=False, skip_reset_edl=False):
         
     print("\n--- [STEP 2] Flashing patched devinfo/persist ---")
     
-    patched_devinfo = OUTPUT_DP_DIR / "devinfo.img"
-    patched_persist = OUTPUT_DP_DIR / "persist.img"
-
-    if not OUTPUT_DP_DIR.exists() or (not patched_devinfo.exists() and not patched_persist.exists()):
-        print(f"[*] '{OUTPUT_DP_DIR.name}' not found or is empty. Skipping devinfo/persist flash.")
+    if skip_dp:
+        print(f"[*] '{OUTPUT_DP_DIR.name}' processing was skipped as requested.")
     else:
-        print("[*] 'output_dp' folder found. Proceeding to flash devinfo/persist...")
-        
-        if not skip_reset_edl:
-            print("\n[*] Resetting device back into EDL mode for devinfo/persist flash...")
-            try:
-                device.edl_reset(loader_path, mode="edl")
-                print("[+] Device reset-to-EDL command sent.")
-            except Exception as e:
-                 print(f"[!] Failed to reset device to EDL: {e}", file=sys.stderr)
-                 print("[!] Please manually reboot to EDL mode.")
+        patched_devinfo = OUTPUT_DP_DIR / "devinfo.img"
+        patched_persist = OUTPUT_DP_DIR / "persist.img"
+
+        if not OUTPUT_DP_DIR.exists() or (not patched_devinfo.exists() and not patched_persist.exists()):
+            print(f"[*] '{OUTPUT_DP_DIR.name}' not found or is empty. Skipping devinfo/persist flash.")
+        else:
+            print("[*] 'output_dp' folder found. Proceeding to flash devinfo/persist...")
             
-            device.wait_for_edl() 
-        
-        write_edl(skip_reset=True, skip_reset_edl=True)
+            if not skip_reset_edl:
+                print("\n[*] Resetting device back into EDL mode for devinfo/persist flash...")
+                try:
+                    device.edl_reset(loader_path, mode="edl")
+                    print("[+] Device reset-to-EDL command sent.")
+                except Exception as e:
+                     print(f"[!] Failed to reset device to EDL: {e}", file=sys.stderr)
+                     print("[!] Please manually reboot to EDL mode.")
+                
+                device.wait_for_edl() 
+            
+            write_edl(skip_reset=True, skip_reset_edl=True)
 
     print("\n--- [STEP 3] Flashing patched Anti-Rollback images ---")
     arb_boot = OUTPUT_ANTI_ROLLBACK_DIR / "boot.img"

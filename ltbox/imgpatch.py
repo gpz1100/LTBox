@@ -371,29 +371,40 @@ def edit_vendor_boot(input_file_path):
         print(f"Error: Input file not found at '{input_file}'", file=sys.stderr)
         sys.exit(1)
 
-    patterns = {
-        b"\x2E\x52\x4F\x57": b"\x2E\x50\x52\x43",  # .ROW -> .PRC
-        b"\x49\x52\x4F\x57": b"\x49\x50\x52\x43"   # IROW -> IPRC
+    patterns_row = {
+        b"\x2E\x52\x4F\x57": b"\x2E\x50\x52\x43",
+        b"\x49\x52\x4F\x57": b"\x49\x50\x52\x43"
     }
-
+    patterns_prc = [b"\x2E\x50\x52\x43", b"\x49\x50\x52\x43"]
+    
     try:
         content = input_file.read_bytes()
         modified_content = content
-        found_count = 0
+        found_row_count = 0
 
-        for target, replacement in patterns.items():
-            count = modified_content.count(target)
+        for target, replacement in patterns_row.items():
+            count = content.count(target)
             if count > 0:
                 print(f"Found '{target.hex().upper()}' pattern {count} time(s). Replacing...")
                 modified_content = modified_content.replace(target, replacement)
-                found_count += count
+                found_row_count += count
 
-        if found_count > 0:
+        if found_row_count > 0:
             output_file.write_bytes(modified_content)
-            print(f"\nPatch successful! Total {found_count} instance(s) replaced.")
+            print(f"\nPatch successful! Total {found_row_count} instance(s) replaced.")
             print(f"Saved as '{output_file.name}'")
         else:
-            print("No target patterns found in vendor_boot. No changes made.")
+            print("[*] No .ROW patterns found. Checking for .PRC patterns...")
+            found_prc = any(content.count(target) > 0 for target in patterns_prc)
+            
+            if found_prc:
+                print("[+] Patch not needed. The file may already be patched (.PRC found).")
+                print(f"[*] Copying original file as '{output_file.name}'...")
+                shutil.copy(input_file, output_file)
+            else:
+                print("[!] No target patterns (.ROW or .PRC) found in vendor_boot.")
+                print(f"[*] Assuming no patch needed. Copying original file as '{output_file.name}'...")
+                shutil.copy(input_file, output_file)
 
     except Exception as e:
         print(f"An error occurred while processing '{input_file.name}': {e}", file=sys.stderr)
