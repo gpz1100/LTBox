@@ -641,6 +641,9 @@ def read_edl(skip_adb=False):
         except Exception as e:
             print(f"[!] Failed to read '{target}': {e}", file=sys.stderr)
 
+        print("[*] Waiting 5 seconds for stability...")
+        time.sleep(5)
+
     print("\n[*] Resetting device to system...")
     device.fh_loader_reset(port)
     print("[+] Reset command sent.")
@@ -1027,6 +1030,9 @@ def flash_edl(skip_reset=False, skip_reset_edl=False, skip_dp=False):
     if not skip_reset:
         print("\n--- [STEP 3] Final step: Resetting device to system ---")
         try:
+            print("[*] Waiting 5 seconds for stability...")
+            time.sleep(5)
+
             print("[*] Attempting to reset device via fh_loader...")
             device.fh_loader_reset(port)
             print("[+] Device reset command sent.")
@@ -1133,8 +1139,11 @@ def root_device(skip_adb=False):
 
     print("\n--- [STEP 6/6] Flashing patched boot.img via Fastboot ---")
     print("[*] Resetting to Fastboot mode...")
+    print("[*] Waiting 5 seconds for stability...")
+    time.sleep(5)
+
     device.fh_loader_reset(port)
-    
+
     if not skip_adb:
         try:
             print("[*] Waiting for device to reboot (10s)...")
