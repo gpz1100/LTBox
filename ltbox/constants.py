@@ -33,8 +33,6 @@ PYTHON_EXE = PYTHON_DIR / "python.exe"
 ADB_EXE = DOWNLOAD_DIR / "adb.exe"
 FASTBOOT_EXE = DOWNLOAD_DIR / "fastboot.exe"
 AVBTOOL_PY = DOWNLOAD_DIR / "avbtool.py"
-EDL_NG_EXE = DOWNLOAD_DIR / "edl-ng.exe"
-LIBUSB_DLL = DOWNLOAD_DIR / "libusb-1.0.dll"
 EDIT_IMAGES_PY = LTBOX_DIR / "edit_images.py"
 GET_KERNEL_VER_PY = LTBOX_DIR / "get_kernel_ver.py"
 DECRYPT_PY = LTBOX_DIR / "decrypt_x.py"
@@ -55,8 +53,6 @@ REPO_URL = f"https://github.com/{RELEASE_OWNER}/{RELEASE_REPO}"
 ANYKERNEL_ZIP_FILENAME = "AnyKernel3.zip"
 
 # --- EDL ---
-EDL_NG_REPO_URL = "https://github.com/strongtz/edl-ng"
-EDL_NG_TAG = "v1.4.1"
 EDL_LOADER_FILENAME = "xbl_s_devprg_ns.melf"
 EDL_LOADER_FILE = IMAGE_DIR / EDL_LOADER_FILENAME 
 

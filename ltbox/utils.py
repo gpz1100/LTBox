@@ -117,9 +117,7 @@ def check_dependencies():
         "RSA4096 Key": KEY_MAP["2597c218aae470a130f61162feaae70afd97f011"],
         "RSA2048 Key": KEY_MAP["cdbb77177f731920bbe0a0f94f84d9038ae0617d"],
         "avbtool": AVBTOOL_PY,
-        "fetch tool": get_platform_executable("fetch"),
-        "edl-ng": EDL_NG_EXE,
-        "libusb": LIBUSB_DLL
+        "fetch tool": get_platform_executable("fetch")
     }
     missing_deps = [name for name, path in dependencies.items() if not Path(path).exists()]
 
