@@ -234,9 +234,7 @@ def root_boot_only():
     print()
     
     utils.check_dependencies()
-
     magiskboot_exe = utils.get_platform_executable("magiskboot")
-    
     ensure_magiskboot()
 
     if platform.system() != "Windows":
@@ -268,35 +266,33 @@ def root_boot_only():
     shutil.copy(boot_img, BASE_DIR / "boot.bak.img")
     print("--- Backing up original boot.img ---")
 
-    if WORK_DIR.exists():
-        shutil.rmtree(WORK_DIR)
-    WORK_DIR.mkdir()
-    shutil.copy(boot_img, WORK_DIR / "boot.img")
-    boot_img.unlink()
-    
-    patched_boot_path = imgpatch.patch_boot_with_root_algo(WORK_DIR, magiskboot_exe)
-
-    if patched_boot_path and patched_boot_path.exists():
-        print("\n--- Finalizing ---")
-        final_boot_img = OUTPUT_ROOT_DIR / "boot.img"
+    with utils.temporary_workspace(WORK_DIR):
+        shutil.copy(boot_img, WORK_DIR / "boot.img")
+        boot_img.unlink()
         
-        imgpatch.process_boot_image_avb(patched_boot_path)
+        patched_boot_path = imgpatch.patch_boot_with_root_algo(WORK_DIR, magiskboot_exe)
 
-        print(f"\n[*] Moving final image to '{OUTPUT_ROOT_DIR.name}' folder...")
-        shutil.move(patched_boot_path, final_boot_img)
+        if patched_boot_path and patched_boot_path.exists():
+            print("\n--- Finalizing ---")
+            final_boot_img = OUTPUT_ROOT_DIR / "boot.img"
+            
+            imgpatch.process_boot_image_avb(patched_boot_path)
 
-        print(f"\n[*] Moving backup file to '{BACKUP_DIR.name}' folder...")
-        BACKUP_DIR.mkdir(exist_ok=True)
-        for bak_file in BASE_DIR.glob("boot.bak.img"):
-            shutil.move(bak_file, BACKUP_DIR / bak_file.name)
-        print()
+            print(f"\n[*] Moving final image to '{OUTPUT_ROOT_DIR.name}' folder...")
+            shutil.move(patched_boot_path, final_boot_img)
 
-        print("=" * 61)
-        print("  SUCCESS!")
-        print(f"  Patched boot.img has been saved to the '{OUTPUT_ROOT_DIR.name}' folder.")
-        print("=" * 61)
-    else:
-        print("[!] Patched boot image was not created. An error occurred during the process.", file=sys.stderr)
+            print(f"\n[*] Moving backup file to '{BACKUP_DIR.name}' folder...")
+            BACKUP_DIR.mkdir(exist_ok=True)
+            for bak_file in BASE_DIR.glob("boot.bak.img"):
+                shutil.move(bak_file, BACKUP_DIR / bak_file.name)
+            print()
+
+            print("=" * 61)
+            print("  SUCCESS!")
+            print(f"  Patched boot.img has been saved to the '{OUTPUT_ROOT_DIR.name}' folder.")
+            print("=" * 61)
+        else:
+            print("[!] Patched boot image was not created. An error occurred during the process.", file=sys.stderr)
 
 def select_country_code(prompt_message="Please select a country from the list below:"):
     print(f"\n--- {prompt_message.upper()} ---")
@@ -480,85 +476,76 @@ def modify_xml(wipe=0, skip_dp=False):
     )
     utils.wait_for_directory(IMAGE_DIR, prompt)
 
-    if WORKING_DIR.exists():
-        shutil.rmtree(WORKING_DIR)
     if OUTPUT_XML_DIR.exists():
         shutil.rmtree(OUTPUT_XML_DIR)
-    
-    WORKING_DIR.mkdir()
     OUTPUT_XML_DIR.mkdir(exist_ok=True)
-    print(f"\n[*] Created temporary '{WORKING_DIR.name}' folder.")
 
-    try:
-        imgpatch.modify_xml_algo(wipe=wipe)
+    with utils.temporary_workspace(WORKING_DIR):
+        print(f"\n[*] Created temporary '{WORKING_DIR.name}' folder.")
+        try:
+            imgpatch.modify_xml_algo(wipe=wipe)
 
-        if not skip_dp:
-            print("\n[*] Creating custom write XMLs for devinfo/persist...")
+            if not skip_dp:
+                print("\n[*] Creating custom write XMLs for devinfo/persist...")
 
-            src_persist_xml = OUTPUT_XML_DIR / "rawprogram_save_persist_unsparse0.xml"
-            dest_persist_xml = OUTPUT_XML_DIR / "rawprogram_write_persist_unsparse0.xml"
-            
-            if src_persist_xml.exists():
-                try:
-                    with open(src_persist_xml, 'r', encoding='utf-8') as f:
-                        content = f.read()
-                    
-                    content = re.sub(
-                        r'(<program[^>]*\blabel="persist"[^>]*filename=")[^"]*(".*/>)',
-                        r'\1persist.img\2',
-                        content,
-                        flags=re.IGNORECASE
-                    )
-                    content = re.sub(
-                        r'(<program[^>]*filename=")[^"]*("[^>]*\blabel="persist"[^>]*/>)',
-                        r'\1persist.img\2',
-                        content,
-                        flags=re.IGNORECASE
-                    )
-                    
-                    with open(dest_persist_xml, 'w', encoding='utf-8') as f:
-                        f.write(content)
-                    print(f"[+] Created '{dest_persist_xml.name}' in '{dest_persist_xml.parent.name}'.")
-                except Exception as e:
-                    print(f"[!] Failed to create '{dest_persist_xml.name}': {e}", file=sys.stderr)
-            else:
-                print(f"[!] Warning: '{src_persist_xml.name}' not found. Cannot create persist write XML.")
+                src_persist_xml = OUTPUT_XML_DIR / "rawprogram_save_persist_unsparse0.xml"
+                dest_persist_xml = OUTPUT_XML_DIR / "rawprogram_write_persist_unsparse0.xml"
+                
+                if src_persist_xml.exists():
+                    try:
+                        content = src_persist_xml.read_text(encoding='utf-8')
+                        
+                        content = re.sub(
+                            r'(<program[^>]*\blabel="persist"[^>]*filename=")[^"]*(".*/>)',
+                            r'\1persist.img\2',
+                            content,
+                            flags=re.IGNORECASE
+                        )
+                        content = re.sub(
+                            r'(<program[^>]*filename=")[^"]*("[^>]*\blabel="persist"[^>]*/>)',
+                            r'\1persist.img\2',
+                            content,
+                            flags=re.IGNORECASE
+                        )
+                        
+                        dest_persist_xml.write_text(content, encoding='utf-8')
+                        print(f"[+] Created '{dest_persist_xml.name}' in '{dest_persist_xml.parent.name}'.")
+                    except Exception as e:
+                        print(f"[!] Failed to create '{dest_persist_xml.name}': {e}", file=sys.stderr)
+                else:
+                    print(f"[!] Warning: '{src_persist_xml.name}' not found. Cannot create persist write XML.")
 
-            src_devinfo_xml = OUTPUT_XML_DIR / "rawprogram4.xml"
-            dest_devinfo_xml = OUTPUT_XML_DIR / "rawprogram4_write_devinfo.xml"
-            
-            if src_devinfo_xml.exists():
-                try:
-                    with open(src_devinfo_xml, 'r', encoding='utf-8') as f:
-                        content = f.read()
+                src_devinfo_xml = OUTPUT_XML_DIR / "rawprogram4.xml"
+                dest_devinfo_xml = OUTPUT_XML_DIR / "rawprogram4_write_devinfo.xml"
+                
+                if src_devinfo_xml.exists():
+                    try:
+                        content = src_devinfo_xml.read_text(encoding='utf-8')
 
-                    content = re.sub(
-                        r'(<program[^>]*\blabel="devinfo"[^>]*filename=")[^"]*(".*/>)',
-                        r'\1devinfo.img\2',
-                        content,
-                        flags=re.IGNORECASE
-                    )
-                    content = re.sub(
-                        r'(<program[^>]*filename=")[^"]*("[^>]*\blabel="devinfo"[^>]*/>)',
-                        r'\1devinfo.img\2',
-                        content,
-                        flags=re.IGNORECASE
-                    )
-                    
-                    with open(dest_devinfo_xml, 'w', encoding='utf-8') as f:
-                        f.write(content)
-                    print(f"[+] Created '{dest_devinfo_xml.name}' in '{dest_devinfo_xml.parent.name}'.")
-                except Exception as e:
-                    print(f"[!] Failed to create '{dest_devinfo_xml.name}': {e}", file=sys.stderr)
-            else:
-                print(f"[!] Warning: '{src_devinfo_xml.name}' not found. Cannot create devinfo write XML.")
+                        content = re.sub(
+                            r'(<program[^>]*\blabel="devinfo"[^>]*filename=")[^"]*(".*/>)',
+                            r'\1devinfo.img\2',
+                            content,
+                            flags=re.IGNORECASE
+                        )
+                        content = re.sub(
+                            r'(<program[^>]*filename=")[^"]*("[^>]*\blabel="devinfo"[^>]*/>)',
+                            r'\1devinfo.img\2',
+                            content,
+                            flags=re.IGNORECASE
+                        )
+                        
+                        dest_devinfo_xml.write_text(content, encoding='utf-8')
+                        print(f"[+] Created '{dest_devinfo_xml.name}' in '{dest_devinfo_xml.parent.name}'.")
+                    except Exception as e:
+                        print(f"[!] Failed to create '{dest_devinfo_xml.name}': {e}", file=sys.stderr)
+                else:
+                    print(f"[!] Warning: '{src_devinfo_xml.name}' not found. Cannot create devinfo write XML.")
 
-    except Exception as e:
-        print(f"[!] Error during XML modification: {e}", file=sys.stderr)
-        raise
-    finally:
-        if WORKING_DIR.exists():
-            shutil.rmtree(WORKING_DIR)
+        except Exception as e:
+            print(f"[!] Error during XML modification: {e}", file=sys.stderr)
+            raise
+        
         print(f"[*] Cleaned up temporary '{WORKING_DIR.name}' folder.")
     
     print("\n" + "=" * 61)
@@ -1064,11 +1051,7 @@ def root_device(skip_adb=False):
     
     if OUTPUT_ROOT_DIR.exists():
         shutil.rmtree(OUTPUT_ROOT_DIR)
-    if WORKING_BOOT_DIR.exists():
-        shutil.rmtree(WORKING_BOOT_DIR)
-    
     OUTPUT_ROOT_DIR.mkdir(exist_ok=True)
-    WORKING_BOOT_DIR.mkdir(exist_ok=True)
     BACKUP_BOOT_DIR.mkdir(exist_ok=True)
 
     utils.check_dependencies()
@@ -1106,50 +1089,54 @@ def root_device(skip_adb=False):
         print(f"[!] Warning: Programmer loading issue: {e}")
 
     print("\n--- [STEP 3/6] Dumping boot_a partition ---")
-    dumped_boot_img = WORKING_BOOT_DIR / "boot.img"
-    backup_boot_img = BACKUP_BOOT_DIR / "boot.img"
-    base_boot_bak = BASE_DIR / "boot.bak.img"
+    
+    with utils.temporary_workspace(WORKING_BOOT_DIR):
+        dumped_boot_img = WORKING_BOOT_DIR / "boot.img"
+        backup_boot_img = BACKUP_BOOT_DIR / "boot.img"
+        base_boot_bak = BASE_DIR / "boot.bak.img"
 
-    try:
-        params = _ensure_params_or_fail("boot")
-        print(f"  > Found info in {params['source_xml']}: LUN={params['lun']}, Start={params['start_sector']}")
-        device.fh_loader_read_part(
-            port=port,
-            output_filename=str(dumped_boot_img),
-            lun=params['lun'],
-            start_sector=params['start_sector'],
-            num_sectors=params['num_sectors']
-        )
-        print(f"[+] Successfully read 'boot' to '{dumped_boot_img}'.")
-    except (subprocess.CalledProcessError, FileNotFoundError, ValueError) as e:
-        print(f"[!] Failed to read 'boot': {e}", file=sys.stderr)
-        raise
+        try:
+            params = _ensure_params_or_fail("boot")
+            print(f"  > Found info in {params['source_xml']}: LUN={params['lun']}, Start={params['start_sector']}")
+            device.fh_loader_read_part(
+                port=port,
+                output_filename=str(dumped_boot_img),
+                lun=params['lun'],
+                start_sector=params['start_sector'],
+                num_sectors=params['num_sectors']
+            )
+            print(f"[+] Successfully read 'boot' to '{dumped_boot_img}'.")
+        except (subprocess.CalledProcessError, FileNotFoundError, ValueError) as e:
+            print(f"[!] Failed to read 'boot': {e}", file=sys.stderr)
+            raise
 
-    print(f"[*] Backing up original boot.img to '{backup_boot_img.parent.name}' folder...")
-    shutil.copy(dumped_boot_img, backup_boot_img)
-    print(f"[*] Creating temporary backup for AVB processing...")
-    shutil.copy(dumped_boot_img, base_boot_bak)
-    print("[+] Backups complete.")
+        print(f"[*] Backing up original boot.img to '{backup_boot_img.parent.name}' folder...")
+        shutil.copy(dumped_boot_img, backup_boot_img)
+        print(f"[*] Creating temporary backup for AVB processing...")
+        shutil.copy(dumped_boot_img, base_boot_bak)
+        print("[+] Backups complete.")
 
-    print("\n--- [STEP 4/6] Patching dumped boot.img ---")
-    patched_boot_path = imgpatch.patch_boot_with_root_algo(WORKING_BOOT_DIR, magiskboot_exe)
+        print("\n--- [STEP 4/6] Patching dumped boot.img ---")
+        patched_boot_path = imgpatch.patch_boot_with_root_algo(WORKING_BOOT_DIR, magiskboot_exe)
 
-    if not (patched_boot_path and patched_boot_path.exists()):
-        print("[!] Patched boot image was not created. An error occurred.", file=sys.stderr)
+        if not (patched_boot_path and patched_boot_path.exists()):
+            print("[!] Patched boot image was not created. An error occurred.", file=sys.stderr)
+            base_boot_bak.unlink(missing_ok=True)
+            sys.exit(1)
+
+        print("\n--- [STEP 5/6] Processing AVB Footer ---")
+        try:
+            imgpatch.process_boot_image_avb(patched_boot_path)
+        except Exception as e:
+            print(f"[!] Failed to process AVB footer: {e}", file=sys.stderr)
+            base_boot_bak.unlink(missing_ok=True)
+            raise
+
+        final_boot_img = OUTPUT_ROOT_DIR / "boot.img"
+        shutil.move(patched_boot_path, final_boot_img)
+        print(f"[+] Patched boot image saved to '{final_boot_img.parent.name}' folder.")
+
         base_boot_bak.unlink(missing_ok=True)
-        sys.exit(1)
-
-    print("\n--- [STEP 5/6] Processing AVB Footer ---")
-    try:
-        imgpatch.process_boot_image_avb(patched_boot_path)
-    except Exception as e:
-        print(f"[!] Failed to process AVB footer: {e}", file=sys.stderr)
-        base_boot_bak.unlink(missing_ok=True)
-        raise
-
-    final_boot_img = OUTPUT_ROOT_DIR / "boot.img"
-    shutil.move(patched_boot_path, final_boot_img)
-    print(f"[+] Patched boot image saved to '{final_boot_img.parent.name}' folder.")
 
     print("\n--- [STEP 6/6] Flashing patched boot.img via Fastboot ---")
     print("[*] Resetting to Fastboot mode...")
@@ -1180,8 +1167,6 @@ def root_device(skip_adb=False):
     except (subprocess.CalledProcessError, FileNotFoundError) as e:
         print(f"[!] An error occurred during Fastboot flash: {e}", file=sys.stderr)
         raise
-    finally:
-        base_boot_bak.unlink(missing_ok=True)
 
     print("\n--- Root Device Process Finished ---")
 
