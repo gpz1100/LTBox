@@ -2,6 +2,7 @@ import os
 import platform
 import subprocess
 import sys
+import shutil
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
