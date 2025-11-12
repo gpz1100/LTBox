@@ -1,17 +1,14 @@
 import os
 import platform
-import re
 import shutil
 import subprocess
 import sys
-import time
-import zipfile
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
 from ltbox.constants import *
 
-# --- Process Execution ---
 def run_command(command, shell=False, check=True, env=None, capture=False):
     env = env or os.environ.copy()
     env['PATH'] = str(TOOLS_DIR) + os.pathsep + str(DOWNLOAD_DIR) + os.pathsep + env['PATH']
@@ -41,7 +38,6 @@ def run_command(command, shell=False, check=True, env=None, capture=False):
             print(f"Stderr:\n{e.stderr.strip()}", file=sys.stderr)
         raise
 
-# --- Platform & Executable Helpers ---
 def get_platform_executable(name):
     system = platform.system()
     executables = {
@@ -54,18 +50,10 @@ def get_platform_executable(name):
         raise RuntimeError(f"Unsupported operating system: {system}")
     return DOWNLOAD_DIR / exe_name
 
-# --- File/Directory Waiters ---
-def wait_for_files(directory, required_files, prompt_message):
-    directory.mkdir(exist_ok=True)
+def _wait_for_resource(target_path, check_func, prompt_msg, item_list=None):
+    target_path.mkdir(exist_ok=True, parents=True)
     while True:
-        all_found = True
-        missing = []
-        for file in required_files:
-            if not (directory / file).exists():
-                all_found = False
-                missing.append(file)
-        
-        if all_found:
+        if check_func(target_path, item_list):
             return True
         
         if platform.system() == "Windows":
@@ -73,41 +61,35 @@ def wait_for_files(directory, required_files, prompt_message):
         else:
             os.system('clear')
             
-        print("--- WAITING FOR FILES ---")
-        print(prompt_message)
-        print(f"\nPlease place the following file(s) in the '{directory.name}' folder:")
-        for f in missing:
-            print(f" - {f}")
+        print("--- WAITING FOR RESOURCE ---")
+        print(prompt_msg)
+        if item_list:
+            print("\nMissing items:")
+            for item in item_list:
+                if not (target_path / item).exists():
+                    print(f" - {item}")
+        
         print("\nPress Enter when ready...")
         try:
             input()
         except EOFError:
             sys.exit(1)
+
+def wait_for_files(directory, required_files, prompt_message):
+    return _wait_for_resource(
+        directory, 
+        lambda p, f: all((p / i).exists() for i in f), 
+        prompt_message, 
+        required_files
+    )
 
 def wait_for_directory(directory, prompt_message):
-    directory.mkdir(exist_ok=True)
-    while True:
-        if directory.is_dir() and any(directory.iterdir()):
-             return True
-        
-        if platform.system() == "Windows":
-            os.system('cls')
-        else:
-            os.system('clear')
-            
-        print("--- WAITING FOR FOLDER ---")
-        print(prompt_message)
-        print(f"\nPlease copy the entire folder into this directory:")
-        print(f" - {directory.name}{os.sep}")
-        print("\nThis is typically located at:")
-        print(r"   C:\ProgramData\RSA\Download\RomFiles\[Your_Firmware_Folder]")
-        print("\nPress Enter when ready...")
-        try:
-            input()
-        except EOFError:
-            sys.exit(1)
+    return _wait_for_resource(
+        directory, 
+        lambda p, _: p.is_dir() and any(p.iterdir()), 
+        prompt_message
+    )
 
-# --- Dependency Check ---
 def check_dependencies():
     print("--- Checking for required files ---")
     dependencies = {
@@ -129,7 +111,35 @@ def check_dependencies():
 
     print("[+] All dependencies are present.\n")
 
-# --- Info Display ---
+def require_dependencies(func):
+    def wrapper(*args, **kwargs):
+        check_dependencies()
+        return func(*args, **kwargs)
+    return wrapper
+
+@contextmanager
+def working_directory(path):
+    origin = Path.cwd()
+    try:
+        os.chdir(path)
+        yield
+    finally:
+        os.chdir(origin)
+
+@contextmanager
+def temporary_workspace(path):
+    if path.exists():
+        shutil.rmtree(path)
+    path.mkdir(parents=True)
+    try:
+        yield path
+    finally:
+        if path.exists():
+            try:
+                shutil.rmtree(path)
+            except OSError as e:
+                print(f"Warning: Failed to clean up temporary workspace {path}: {e}", file=sys.stderr)
+
 def show_image_info(files):
     all_files = []
     for f in files:
