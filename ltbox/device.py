@@ -11,9 +11,10 @@ from ltbox.constants import *
 from ltbox import utils
 
 class DeviceController:
-    def __init__(self, skip_adb: bool = False):
+    def __init__(self, skip_adb: bool = False, lang: Optional[Dict[str, str]] = None):
         self.skip_adb = skip_adb
         self.edl_port: Optional[str] = None
+        self.lang = lang or {}
 
     def wait_for_adb(self) -> None:
         if self.skip_adb:
@@ -31,6 +32,7 @@ class DeviceController:
             raise
 
     def get_device_model(self) -> Optional[str]:
+        self.wait_for_adb()
         if self.skip_adb:
             print("[!] Skipping device model check as requested.")
             return None
@@ -49,6 +51,7 @@ class DeviceController:
             return None
 
     def get_active_slot_suffix(self) -> Optional[str]:
+        self.wait_for_adb()
         if self.skip_adb:
             print("[!] Skipping active slot check as requested.")
             return None
@@ -87,6 +90,7 @@ class DeviceController:
             return None
 
     def reboot_to_edl(self) -> None:
+        self.wait_for_adb()
         if self.skip_adb:
             print("[!] You requested Skip ADB, so please reboot to EDL manually.")
             return
@@ -99,6 +103,7 @@ class DeviceController:
             print("[!] Please reboot to EDL manually if it fails.")
 
     def reboot_to_bootloader(self) -> None:
+        self.wait_for_adb()
         if self.skip_adb:
             print("[!] Skipping ADB connection as requested.")
             return
@@ -263,7 +268,7 @@ class DeviceController:
             f"         into the '{IMAGE_DIR.name}' folder to proceed."
         )
         IMAGE_DIR.mkdir(exist_ok=True)
-        utils.wait_for_files(IMAGE_DIR, required_files, prompt)
+        utils.wait_for_files(IMAGE_DIR, required_files, prompt, lang=self.lang)
         print(f"[+] Loader file '{EDL_LOADER_FILE.name}' found in '{IMAGE_DIR.name}'.")
 
         port = self.wait_for_edl()
