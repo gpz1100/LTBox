@@ -5,10 +5,10 @@ from ..constants import *
 from .. import utils, device
 from ..i18n import get_string
 
-def detect_active_slot_robust(dev: device.DeviceController, skip_adb: bool) -> Optional[str]:
+def detect_active_slot_robust(dev: device.DeviceController) -> Optional[str]:
     active_slot = None
 
-    if not skip_adb:
+    if not dev.skip_adb:
         try:
             active_slot = dev.get_active_slot_suffix()
         except Exception:
@@ -17,7 +17,7 @@ def detect_active_slot_robust(dev: device.DeviceController, skip_adb: bool) -> O
     if not active_slot:
         print(get_string("act_slot_adb_fail"))
         
-        if not skip_adb:
+        if not dev.skip_adb:
             print(get_string("act_reboot_bootloader"))
             try:
                 dev.reboot_to_bootloader()
@@ -31,7 +31,7 @@ def detect_active_slot_robust(dev: device.DeviceController, skip_adb: bool) -> O
         dev.wait_for_fastboot()
         active_slot = dev.get_active_slot_suffix_from_fastboot()
 
-        if not skip_adb:
+        if not dev.skip_adb:
             print(get_string("act_slot_detected_sys"))
             dev.fastboot_reboot_system()
             print(get_string("act_wait_adb"))
@@ -44,8 +44,7 @@ def detect_active_slot_robust(dev: device.DeviceController, skip_adb: bool) -> O
 
     return active_slot
 
-def disable_ota(skip_adb: bool = False) -> None:
-    dev = device.DeviceController(skip_adb=skip_adb)
+def disable_ota(dev: device.DeviceController) -> None:
     if dev.skip_adb:
         print(get_string("act_ota_skip_adb"))
         return

@@ -12,7 +12,7 @@ from ..patch.region import edit_vendor_boot, detect_region_codes, patch_region_c
 from ..patch.avb import extract_image_avb_info
 from ..i18n import get_string
 
-def convert_images(device_model: Optional[str] = None, skip_adb: bool = False) -> None:
+def convert_images(dev: device.DeviceController, device_model: Optional[str] = None) -> None:
     utils.check_dependencies()
     
     print(get_string("act_conv_start"))
@@ -58,7 +58,7 @@ def convert_images(device_model: Optional[str] = None, skip_adb: bool = False) -
     vendor_boot_info = extract_image_avb_info(vendor_boot_bak)
     print(get_string("act_info_extracted"))
 
-    if device_model and not skip_adb:
+    if device_model and not dev.skip_adb:
         print(get_string("act_val_model").format(model=device_model))
         fingerprint_key = "com.android.build.vendor_boot.fingerprint"
         if fingerprint_key in vendor_boot_info:

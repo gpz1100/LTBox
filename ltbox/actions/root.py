@@ -81,7 +81,7 @@ def root_boot_only() -> None:
         else:
             print(get_string("act_err_root_fail"), file=sys.stderr)
 
-def root_device(skip_adb=False) -> None:
+def root_device(dev: device.DeviceController) -> None:
     print(get_string("act_start_root"))
     
     if OUTPUT_ROOT_DIR.exists():
@@ -94,13 +94,11 @@ def root_device(skip_adb=False) -> None:
     magiskboot_exe = utils.get_platform_executable("magiskboot")
     ensure_magiskboot()
 
-    dev = device.DeviceController(skip_adb=skip_adb)
-
     print(get_string("act_root_step1"))
-    if not skip_adb:
+    if not dev.skip_adb:
         dev.wait_for_adb()
 
-    active_slot = detect_active_slot_robust(dev, skip_adb)
+    active_slot = detect_active_slot_robust(dev)
 
     if active_slot:
         print(get_string("act_slot_confirmed").format(slot=active_slot))
@@ -109,7 +107,7 @@ def root_device(skip_adb=False) -> None:
         print(get_string("act_warn_root_slot"))
         target_partition = "boot"
 
-    if not skip_adb:
+    if not dev.skip_adb:
         print(get_string("act_check_ksu"))
         downloader.download_ksu_apk(BASE_DIR)
         
@@ -191,7 +189,7 @@ def root_device(skip_adb=False) -> None:
 
     print(get_string("act_root_step6").format(part=target_partition))
     
-    if not skip_adb:
+    if not dev.skip_adb:
         print(get_string("act_wait_sys_adb"))
         dev.wait_for_adb()
         print(get_string("act_reboot_edl_flash"))
@@ -226,7 +224,7 @@ def root_device(skip_adb=False) -> None:
 
     print(get_string("act_root_finish"))
 
-def unroot_device(skip_adb=False) -> None:
+def unroot_device(dev: device.DeviceController) -> None:
     print(get_string("act_start_unroot"))
     
     backup_boot_file = BACKUP_BOOT_DIR / "boot.img"
@@ -246,14 +244,13 @@ def unroot_device(skip_adb=False) -> None:
     
     print(get_string("act_backup_boot_found"))
 
-    dev = device.DeviceController(skip_adb=skip_adb)
     target_partition = "boot"
 
     print(get_string("act_unroot_step3"))
-    if not skip_adb:
+    if not dev.skip_adb:
         dev.wait_for_adb()
     
-    active_slot = detect_active_slot_robust(dev, skip_adb)
+    active_slot = detect_active_slot_robust(dev)
     
     if active_slot:
         print(get_string("act_slot_confirmed").format(slot=active_slot))

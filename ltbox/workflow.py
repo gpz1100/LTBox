@@ -7,7 +7,7 @@ from ltbox.constants import *
 from ltbox import utils, device, actions
 from ltbox.i18n import get_string
 
-def patch_all(wipe: int = 0, skip_adb: bool = False) -> None:
+def patch_all(dev: device.DeviceController, wipe: int = 0) -> None:
     
     print(get_string('wf_step1_clean'))
     output_folders_to_clean = [
@@ -35,13 +35,11 @@ def patch_all(wipe: int = 0, skip_adb: bool = False) -> None:
     print(get_string('wf_step2_device_info'))
     print("="*61)
     
-    dev = device.DeviceController(skip_adb=skip_adb)
-
-    active_slot_suffix = actions.detect_active_slot_robust(dev, skip_adb)
+    active_slot_suffix = actions.detect_active_slot_robust(dev)
     
     device_model: Optional[str] = None
 
-    if not skip_adb:
+    if not dev.skip_adb:
         try:
             device_model = dev.get_device_model()
             if not device_model:
@@ -66,7 +64,7 @@ def patch_all(wipe: int = 0, skip_adb: bool = False) -> None:
         print("\n" + "="*61)
         print(get_string('wf_step4_convert'))
         print("="*61)
-        actions.convert_images(device_model=device_model, skip_adb=skip_adb)
+        actions.convert_images(dev=dev, device_model=device_model)
         print(get_string('wf_step4_complete'))
 
         print("\n" + "="*61)
@@ -88,7 +86,7 @@ def patch_all(wipe: int = 0, skip_adb: bool = False) -> None:
         print(get_string('wf_step6_extra_dumps').format(dumps=', '.join(extra_dumps)))
         
         dump_status = actions.read_edl_fhloader(
-            skip_adb=skip_adb, 
+            dev=dev,
             skip_reset=False, 
             additional_targets=extra_dumps
         )
@@ -139,7 +137,7 @@ def patch_all(wipe: int = 0, skip_adb: bool = False) -> None:
         print(get_string('wf_step9_flash'))
         print("="*61)
         print(get_string('wf_step9_flash_info'))
-        actions.flash_edl(skip_reset_edl=True, skip_dp=skip_dp_workflow) 
+        actions.flash_edl(dev=dev, skip_reset_edl=True, skip_dp=skip_dp_workflow) 
         
         print("\n" + "=" * 61)
         print(get_string('wf_process_complete'))

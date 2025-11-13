@@ -12,10 +12,9 @@ from .. import utils, device
 from .xml import _ensure_params_or_fail
 from ..i18n import get_string
 
-def read_edl(skip_adb: bool = False, skip_reset: bool = False, additional_targets: Optional[List[str]] = None) -> None:
+def read_edl(dev: device.DeviceController, skip_reset: bool = False, additional_targets: Optional[List[str]] = None) -> None:
     print(get_string("act_start_dump"))
     
-    dev = device.DeviceController(skip_adb=skip_adb)
     port = dev.setup_edl_connection()
     
     try:
@@ -68,14 +67,11 @@ def read_edl(skip_adb: bool = False, skip_reset: bool = False, additional_target
     print(get_string("act_dump_finish"))
     print(get_string("act_dump_saved").format(dir=BACKUP_DIR.name))
 
-def read_edl_fhloader(skip_adb: bool = False, skip_reset: bool = False, additional_targets: Optional[List[str]] = None) -> None:
-    return read_edl(skip_adb, skip_reset=skip_reset, additional_targets=additional_targets)
+def read_edl_fhloader(dev: device.DeviceController, skip_reset: bool = False, additional_targets: Optional[List[str]] = None) -> None:
+    return read_edl(dev, skip_reset=skip_reset, additional_targets=additional_targets)
 
-def write_edl(skip_reset: bool = False, skip_reset_edl: bool = False) -> None:
+def write_edl(dev: device.DeviceController, skip_reset: bool = False, skip_reset_edl: bool = False) -> None:
     print(get_string("act_start_write"))
-
-    skip_adb_val = os.environ.get('SKIP_ADB') == '1'
-    dev = device.DeviceController(skip_adb=skip_adb_val)
 
     if not OUTPUT_DP_DIR.exists():
         print(get_string("act_err_dp_folder").format(dir=OUTPUT_DP_DIR.name), file=sys.stderr)
@@ -128,7 +124,7 @@ def write_edl(skip_reset: bool = False, skip_reset_edl: bool = False) -> None:
 
     print(get_string("act_write_finish"))
 
-def write_anti_rollback(skip_reset: bool = False) -> None:
+def write_anti_rollback(dev: device.DeviceController, skip_reset: bool = False) -> None:
     print(get_string("act_start_arb_write"))
 
     boot_img = OUTPUT_ANTI_ROLLBACK_DIR / "boot.img"
@@ -139,8 +135,6 @@ def write_anti_rollback(skip_reset: bool = False) -> None:
         print(get_string("act_err_run_patch_arb"), file=sys.stderr)
         raise FileNotFoundError(get_string("act_err_patched_missing_exc").format(dir=OUTPUT_ANTI_ROLLBACK_DIR.name))
     print(get_string("act_found_arb_folder").format(dir=OUTPUT_ANTI_ROLLBACK_DIR.name))
-
-    dev = device.DeviceController(skip_adb=True)
     
     print(get_string("act_arb_write_step1"))
     print(get_string("act_boot_fastboot"))
@@ -201,11 +195,8 @@ def write_anti_rollback(skip_reset: bool = False) -> None:
     
     print(get_string("act_arb_write_finish"))
 
-def flash_edl(skip_reset: bool = False, skip_reset_edl: bool = False, skip_dp: bool = False) -> None:
+def flash_edl(dev: device.DeviceController, skip_reset: bool = False, skip_reset_edl: bool = False, skip_dp: bool = False) -> None:
     print(get_string("act_start_flash"))
-
-    skip_adb_val = os.environ.get('SKIP_ADB') == '1'
-    dev = device.DeviceController(skip_adb=skip_adb_val)
     
     if not IMAGE_DIR.is_dir() or not any(IMAGE_DIR.iterdir()):
         print(get_string("act_err_image_empty").format(dir=IMAGE_DIR.name))

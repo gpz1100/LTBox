@@ -108,7 +108,7 @@ except (subprocess.CalledProcessError, FileNotFoundError) as e:
     sys.exit(1)
 
 try:
-    from ltbox import utils, actions, workflow
+    from ltbox import utils, actions, workflow, device
     from ltbox import constants
 except ImportError as e:
     print(f"[!] Error: Failed to import 'ltbox' package.", file=sys.stderr)
@@ -120,12 +120,12 @@ except ImportError as e:
 
 COMMAND_MAP = {
     "convert": (actions.convert_images, {}),
-    "root_device": (actions.root_device, {"skip_adb": True}),
+    "root_device": (actions.root_device, {}),
     "root_boot_only": (actions.root_boot_only, {}),
-    "unroot_device": (actions.unroot_device, {"skip_adb": True}),
-    "disable_ota": (actions.disable_ota, {"skip_adb": True}),
+    "unroot_device": (actions.unroot_device, {}),
+    "disable_ota": (actions.disable_ota, {}),
     "edit_dp": (actions.edit_devinfo_persist, {}),
-    "read_edl": (actions.read_edl, {"skip_adb": True}),
+    "read_edl": (actions.read_edl, {}),
     "write_edl": (actions.write_edl, {}),
     "read_anti_rollback": (actions.read_anti_rollback, {}),
     "patch_anti_rollback": (actions.patch_anti_rollback, {}),
@@ -134,8 +134,8 @@ COMMAND_MAP = {
     "modify_xml": (actions.modify_xml, {"wipe": 0}),
     "modify_xml_wipe": (actions.modify_xml, {"wipe": 1}),
     "flash_edl": (actions.flash_edl, {}),
-    "patch_all": (workflow.patch_all, {"wipe": 0, "skip_adb": True}),
-    "patch_all_wipe": (workflow.patch_all, {"wipe": 1, "skip_adb": True}),
+    "patch_all": (workflow.patch_all, {"wipe": 0}),
+    "patch_all_wipe": (workflow.patch_all, {"wipe": 1}),
 }
 
 def check_path_encoding():
@@ -196,9 +196,7 @@ def capture_output_to_log(log_filename):
         logger.removeHandler(file_handler)
         file_handler.close()
 
-def run_task(command, title, skip_adb):
-    os.environ['SKIP_ADB'] = '1' if skip_adb else '0'
-    
+def run_task(command, title, dev):
     os.system('cls' if os.name == 'nt' else 'clear')
     
     print("  " + "=" * 58)
@@ -229,8 +227,14 @@ def run_task(command, title, skip_adb):
             
             func, base_kwargs = func_tuple
             final_kwargs = base_kwargs.copy()
-            if "skip_adb" in final_kwargs:
-                final_kwargs["skip_adb"] = skip_adb
+            
+            no_dev_needed = {
+                "root_boot_only", "edit_dp", "read_anti_rollback", 
+                "patch_anti_rollback", "clean", "modify_xml", "modify_xml_wipe"
+            }
+            
+            if command not in no_dev_needed:
+                final_kwargs["dev"] = dev
             
             func(**final_kwargs)
 
@@ -348,7 +352,7 @@ def print_advanced_menu():
     print(get_string("menu_adv_m"))
     print("\n  " + "=" * 58 + "\n")
 
-def advanced_menu(skip_adb):
+def advanced_menu(dev):
     actions_map = {
         "1": ("convert", get_string("task_title_convert_rom")),
         "2": ("read_edl", get_string("task_title_dump_devinfo")),
@@ -369,7 +373,7 @@ def advanced_menu(skip_adb):
 
         if choice in actions_map:
             cmd, title = actions_map[choice]
-            run_task(cmd, title, skip_adb)
+            run_task(cmd, title, dev)
             if choice == "11":
                 sys.exit()
         elif choice == "m":
@@ -391,7 +395,7 @@ def print_root_menu():
     print("\n" + get_string("menu_root_m"))
     print("\n  " + "=" * 58 + "\n")
 
-def root_menu(skip_adb):
+def root_menu(dev):
     actions_map = {
         "1": ("root_boot_only", get_string("task_title_root_file")),
         "2": ("root_device", get_string("task_title_root")),
@@ -403,7 +407,7 @@ def root_menu(skip_adb):
 
         if choice in actions_map:
             cmd, title = actions_map[choice]
-            run_task(cmd, title, skip_adb)
+            run_task(cmd, title, dev)
         elif choice == "m":
             return
         else:
@@ -415,6 +419,7 @@ def root_menu(skip_adb):
 
 def main():
     skip_adb = False
+    dev = device.DeviceController(skip_adb=skip_adb)
     
     actions_map = {
         "1": ("patch_all_wipe", get_string("task_title_install_wipe")),
@@ -429,13 +434,14 @@ def main():
 
         if choice in actions_map:
             cmd, title = actions_map[choice]
-            run_task(cmd, title, skip_adb)
+            run_task(cmd, title, dev)
         elif choice == "4":
-            root_menu(skip_adb)
+            root_menu(dev)
         elif choice == "6":
             skip_adb = not skip_adb
+            dev.skip_adb = skip_adb
         elif choice == "a":
-            advanced_menu(skip_adb)
+            advanced_menu(dev)
         elif choice == "x":
             break
         else:
