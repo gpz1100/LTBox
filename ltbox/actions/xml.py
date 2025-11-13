@@ -65,10 +65,31 @@ def _modify_xml_algo(wipe: int = 0) -> None:
     
     if not rawprogram4.exists() and rawprogram_unsparse4.exists():
         print(get_string("img_xml_copy_raw4"))
-        shutil.copy(rawprogram_unsparse4, rawprogram4)
+        try:
+            tree = ET.parse(rawprogram_unsparse4)
+            root = tree.getroot()
+            
+            devinfo_modified = False
+            for prog in root.findall('program'):
+                if prog.get('label', '').lower() == 'devinfo':
+                    if 'devinfo.img' in prog.get('filename', '').lower():
+                        prog.set('filename', '')
+                        devinfo_modified = True
+            
+            tree.write(rawprogram4, encoding='utf-8', xml_declaration=True)
+            
+            if devinfo_modified:
+                print(f"  > Created {rawprogram4.name} with 'devinfo' filename cleared.")
+            else:
+                print(f"  > Created {rawprogram4.name} (no 'devinfo.img' found/modified).")
+                
+        except Exception as e:
+            print(f"[!] Error processing {rawprogram_unsparse4.name}: {e}", file=sys.stderr)
+            print("  > Fallback: Simply copying file.")
+            shutil.copy(rawprogram_unsparse4, rawprogram4)
 
     print(get_string("img_xml_mod_raw"))
-    
+
     rawprogram_save = const.OUTPUT_XML_DIR / "rawprogram_save_persist_unsparse0.xml"
 
     if not rawprogram_save.exists():
@@ -82,9 +103,41 @@ def _modify_xml_algo(wipe: int = 0) -> None:
                 print(get_string("img_xml_rename_err").format(e=e), file=sys.stderr)
                 raise
         else:
-            print(get_string("img_xml_critical_missing").format(f1=rawprogram_save.name, f2=rawprogram_fallback.name))
-            print(get_string("img_xml_abort_mod"))
-            raise FileNotFoundError(f"Critical XML file missing: {rawprogram_save.name} or {rawprogram_fallback.name}")
+            fallback_candidates = ["rawprogram_unsparse0.xml", "rawprogram0.xml"]
+            found_candidate = None
+            
+            for cand_name in fallback_candidates:
+                cand_path = const.OUTPUT_XML_DIR / cand_name
+                if cand_path.exists():
+                    found_candidate = cand_path
+                    break
+            
+            if found_candidate:
+                print(f"[*] Fallback found: {found_candidate.name}. Creating {rawprogram_save.name}...")
+                try:
+                    tree = ET.parse(found_candidate)
+                    root = tree.getroot()
+                    
+                    persist_found = False
+                    for prog in root.findall('program'):
+                        if prog.get('label', '').lower() == 'persist':
+                            prog.set('filename', '')
+                            persist_found = True
+                    
+                    tree.write(rawprogram_save, encoding='utf-8', xml_declaration=True)
+                    
+                    if persist_found:
+                        print(f"  > Created {rawprogram_save.name} (persist filename cleared).")
+                    else:
+                        print(f"  [!] Warning: 'persist' label not found in {found_candidate.name}. Created anyway.")
+
+                except Exception as e:
+                    print(f"[!] Error processing fallback {found_candidate.name}: {e}", file=sys.stderr)
+                    raise
+            else:
+                print(get_string("img_xml_critical_missing").format(f1=rawprogram_save.name, f2=rawprogram_fallback.name))
+                print(get_string("img_xml_abort_mod"))
+                raise FileNotFoundError(f"Critical XML file missing: {rawprogram_save.name} or fallbacks")
 
     try:
         with open(rawprogram_save, 'r', encoding='utf-8') as f:
