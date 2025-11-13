@@ -700,7 +700,7 @@ def read_edl_fhloader(skip_adb: bool = False, skip_reset: bool = False, addition
 
 def write_edl(skip_reset: bool = False, skip_reset_edl: bool = False, lang: Optional[Dict[str, str]] = None) -> None:
     lang = lang or {}
-    print(lang.get("act_start_write", "--- Starting Write Process (Fastboot) ---"))
+    print(lang.get("act_start_write", "--- Starting Write Process (EDL) ---"))
 
     skip_adb_val = os.environ.get('SKIP_ADB') == '1'
     dev = device.DeviceController(skip_adb=skip_adb_val, lang=lang)
@@ -711,72 +711,45 @@ def write_edl(skip_reset: bool = False, skip_reset_edl: bool = False, lang: Opti
         raise FileNotFoundError(lang.get("act_err_dp_folder_nf", "{dir} not found.").format(dir=OUTPUT_DP_DIR.name))
     print(lang.get("act_found_dp_folder", "[+] Found patched images folder: '{dir}'.").format(dir=OUTPUT_DP_DIR.name))
 
-    if not dev.skip_adb:
-        print(lang.get("act_check_state", "[*] checking device state..."))
-        
-        if dev.check_fastboot_device(silent=True):
-            print(lang.get("act_fastboot_ok", "[+] Device is already in Fastboot mode."))
-        
-        else:
-            edl_port = dev.check_edl_device(silent=True)
-            if edl_port:
-                print(lang.get("act_edl_found", "[!] Device found in EDL mode ({port}).").format(port=edl_port))
-                print(lang.get("act_reset_for_fastboot", "[*] Resetting to System via fh_loader to prepare for Fastboot..."))
-                try:
-                    dev.fh_loader_reset(edl_port)
-                    print(lang.get("act_reset_sent_wait", "[+] Reset command sent. Waiting for device to boot..."))
-                    time.sleep(10)
-                except Exception as e:
-                    print(lang.get("act_warn_reset_edl", "[!] Warning: Failed to reset from EDL: {e}").format(e=e))
-            
-            try:
-                dev.wait_for_adb()
-                dev.reboot_to_bootloader()
-                time.sleep(10)
-            except Exception as e:
-                print(lang.get("act_err_reboot_bl_req", "[!] Error requesting reboot to bootloader: {e}").format(e=e))
-                print(lang.get("act_manual_fastboot_hang", "[!] Please manually enter Fastboot mode if the script hangs."))
-
-    else:
-        print("\n" + "="*61)
-        print(lang.get("act_skip_adb_active", "  [SKIP ADB ACTIVE]"))
-        print(lang.get("act_manual_fastboot_prompt", "  Please manually boot your device into FASTBOOT mode."))
-        print(lang.get("act_manual_fastboot_hint", "  (Power + Volume Down usually works)"))
-        print("="*61 + "\n")
-        input(lang.get("act_press_enter_fastboot", "  Press Enter when device is in Fastboot mode..."))
-
-    dev.wait_for_fastboot()
-
-    patched_devinfo = OUTPUT_DP_DIR / "devinfo.img"
-    patched_persist = OUTPUT_DP_DIR / "persist.img"
-
-    if not patched_devinfo.exists() and not patched_persist.exists():
-         print(lang.get("act_err_no_imgs", "[!] Error: Neither 'devinfo.img' nor 'persist.img' found inside '{dir}'.").format(dir=OUTPUT_DP_DIR.name), file=sys.stderr)
-         raise FileNotFoundError(lang.get("act_err_no_imgs_nf", "No patched images found in {dir}.").format(dir=OUTPUT_DP_DIR.name))
+    port = dev.setup_edl_connection()
 
     try:
-        if patched_devinfo.exists():
-            print(lang.get("act_flash_devinfo", "\n[*] Flashing 'devinfo' partition via Fastboot..."))
-            utils.run_command([str(FASTBOOT_EXE), "flash", "devinfo", str(patched_devinfo)])
-            print(lang.get("act_flash_devinfo_ok", "[+] Successfully flashed 'devinfo'."))
-        else:
-            print(lang.get("act_skip_devinfo", "\n[*] 'devinfo.img' not found. Skipping."))
+        dev.load_firehose_programmer(EDL_LOADER_FILE, port)
+        time.sleep(2)
+    except Exception as e:
+        print(lang.get("act_warn_prog_load", "[!] Warning: Programmer loading issue: {e}").format(e=e))
 
-        if patched_persist.exists():
-            print(lang.get("act_flash_persist", "\n[*] Flashing 'persist' partition via Fastboot..."))
-            utils.run_command([str(FASTBOOT_EXE), "flash", "persist", str(patched_persist)])
-            print(lang.get("act_flash_persist_ok", "[+] Successfully flashed 'persist'."))
-        else:
-            print(lang.get("act_skip_persist", "\n[*] 'persist.img' not found. Skipping."))
+    targets = ["devinfo", "persist"]
 
-    except subprocess.CalledProcessError as e:
-        print(lang.get("act_err_fastboot_flash", "[!] Fastboot flashing failed: {e}").format(e=e), file=sys.stderr)
-        raise
+    for target in targets:
+        image_path = OUTPUT_DP_DIR / f"{target}.img"
+
+        if not image_path.exists():
+            print(lang.get(f"act_skip_{target}", f"[*] '{target}.img' missing. Skipping."))
+            continue
+
+        print(f"[*] Flashing '{target}' via EDL...")
+
+        try:
+            params = _ensure_params_or_fail(target, lang=lang)
+            print(lang.get("act_found_boot_info", "  > Found info: LUN={lun}, Start={start}").format(lun=params['lun'], start=params['start_sector']))
+            
+            dev.fh_loader_write_part(
+                port=port,
+                image_path=image_path,
+                lun=params['lun'],
+                start_sector=params['start_sector']
+            )
+            print(lang.get(f"act_flash_{target}_ok", f"[+] Successfully flashed '{target}'."))
+
+        except (subprocess.CalledProcessError, FileNotFoundError, ValueError) as e:
+            print(lang.get("act_err_edl_write", f"[!] An error occurred during the EDL write operation: {e}").format(e=e), file=sys.stderr)
+            raise
 
     if not skip_reset:
         print(lang.get("act_reboot_device", "\n[*] Rebooting device..."))
         try:
-            utils.run_command([str(FASTBOOT_EXE), "reboot"])
+            dev.fh_loader_reset(port)
         except Exception as e:
             print(lang.get("act_warn_reboot", "[!] Warning: Failed to reboot: {e}").format(e=e))
     else:

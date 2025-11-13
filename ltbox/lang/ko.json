@@ -470,7 +470,7 @@
   "act_skip_reset": "\n[*] 재부팅 건너뜀 (기기 EDL 모드 상태).",
   "act_dump_finish": "\n--- 추출 완료 ---",
   "act_dump_saved": "[*] 파일 저장 위치: {dir}",
-  "act_start_write": "--- 플래싱 시작 (Fastboot) ---",
+  "act_start_write": "--- 플래싱 시작 (EDL) ---",
   "act_err_dp_folder": "[!] 오류: 패치된 폴더 '{dir}' 누락됨",
   "act_err_run_patch_first": "[!] 먼저 'devinfo/persist 패치' (메뉴 3)를 실행하세요.",
   "act_err_dp_folder_nf": "{dir}을(를) 찾을 수 없습니다.",

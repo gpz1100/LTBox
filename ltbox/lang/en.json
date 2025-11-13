@@ -470,7 +470,7 @@
   "act_skip_reset": "\n[*] Skipping reset (Device in EDL).",
   "act_dump_finish": "\n--- Dump Finished ---",
   "act_dump_saved": "[*] Files saved to: {dir}",
-  "act_start_write": "--- Starting Write (Fastboot) ---",
+  "act_start_write": "--- Starting Write (EDL) ---",
   "act_err_dp_folder": "[!] Error: Patched folder '{dir}' missing.",
   "act_err_run_patch_first": "[!] Run 'Patch devinfo/persist' (Menu 3) first.",
   "act_err_dp_folder_nf": "{dir} not found.",
