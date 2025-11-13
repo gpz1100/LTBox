@@ -533,7 +533,7 @@ def detect_region_codes() -> Dict[str, Optional[str]]:
         try:
             content = file_path.read_bytes()
             for code, _ in COUNTRY_CODES.items():
-                target_bytes = f"{code.upper()}XX".encode('ascii')
+                target_bytes = b'\x00\x00\x00' + f"{code.upper()}".encode('ascii') + b'XX\x00\x00\x00'
                 if target_bytes in content:
                     results[filename] = code
                     break
@@ -549,13 +549,14 @@ def _patch_region_code_logic(content: bytes, **kwargs: Any) -> Tuple[bytes, Dict
     if not current_code or not replacement_code:
         return content, {'changed': False, 'message': "Invalid codes"}
 
-    replacement_string = f"{replacement_code.upper()}XX"
-    replacement_bytes = replacement_string.encode('ascii')
-    target_string = f"{current_code.upper()}XX"
-    target_bytes = target_string.encode('ascii')
+    replacement_string = f"000000{replacement_code.upper()}XX000000"
+    replacement_bytes = b'\x00\x00\x00' + f"{replacement_code.upper()}".encode('ascii') + b'XX\x00\x00\x00'
+    
+    target_string = f"000000{current_code.upper()}XX000000"
+    target_bytes = b'\x00\x00\x00' + f"{current_code.upper()}".encode('ascii') + b'XX\x00\x00\x00'
     
     if target_bytes == replacement_bytes:
-        return content, {'changed': False, 'message': f"File is already '{target_string}'."}
+        return content, {'changed': False, 'message': f"File is already '{replacement_code.upper()}'."}
 
     count = content.count(target_bytes)
     if count > 0:
