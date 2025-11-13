@@ -8,11 +8,13 @@ from pathlib import Path
 from typing import Optional, Dict
 
 from ..constants import *
-from .. import utils, device, imgpatch, downloader
+from .. import utils, device, downloader
 from ..downloader import ensure_magiskboot
 from .xml import _ensure_params_or_fail
 from .system import detect_active_slot_robust
 from .edl import _fh_loader_write_part
+from ..patch.root import patch_boot_with_root_algo
+from ..patch.avb import process_boot_image_avb
 
 def root_boot_only(lang: Optional[Dict[str, str]] = None) -> None:
     lang = lang or {}
@@ -59,13 +61,13 @@ def root_boot_only(lang: Optional[Dict[str, str]] = None) -> None:
         shutil.copy(boot_img, WORK_DIR / "boot.img")
         boot_img.unlink()
         
-        patched_boot_path = imgpatch.patch_boot_with_root_algo(WORK_DIR, magiskboot_exe, lang=lang)
+        patched_boot_path = patch_boot_with_root_algo(WORK_DIR, magiskboot_exe, lang=lang)
 
         if patched_boot_path and patched_boot_path.exists():
             print(lang.get("act_finalize_root", "\n--- Finalizing ---"))
             final_boot_img = OUTPUT_ROOT_DIR / "boot.img"
             
-            imgpatch.process_boot_image_avb(patched_boot_path, lang=lang)
+            process_boot_image_avb(patched_boot_path, lang=lang)
 
             print(lang.get("act_move_root_final", "\n[*] Moving final image to '{dir}' folder...").format(dir=OUTPUT_ROOT_DIR.name))
             shutil.move(patched_boot_path, final_boot_img)
@@ -173,7 +175,7 @@ def root_device(skip_adb=False, lang: Optional[Dict[str, str]] = None) -> None:
         dev.fh_loader_reset(port)
         
         print(lang.get("act_root_step4", "\n--- [STEP 4/6] Patching dumped boot.img ---"))
-        patched_boot_path = imgpatch.patch_boot_with_root_algo(WORKING_BOOT_DIR, magiskboot_exe, lang=lang)
+        patched_boot_path = patch_boot_with_root_algo(WORKING_BOOT_DIR, magiskboot_exe, lang=lang)
 
         if not (patched_boot_path and patched_boot_path.exists()):
             print(lang.get("act_err_root_fail", "[!] Patched boot image was not created. An error occurred."), file=sys.stderr)
@@ -182,7 +184,7 @@ def root_device(skip_adb=False, lang: Optional[Dict[str, str]] = None) -> None:
 
         print(lang.get("act_root_step5", "\n--- [STEP 5/6] Processing AVB Footer ---"))
         try:
-            imgpatch.process_boot_image_avb(patched_boot_path, lang=lang)
+            process_boot_image_avb(patched_boot_path, lang=lang)
         except Exception as e:
             print(lang.get("act_err_avb_footer", "[!] Failed to process AVB footer: {e}").format(e=e), file=sys.stderr)
             base_boot_bak.unlink(missing_ok=True)

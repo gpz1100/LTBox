@@ -113,7 +113,7 @@ if platform.system() == "Windows":
 
 try:
     from ltbox import utils, actions, workflow
-    from ltbox import constants, imgpatch
+    from ltbox import constants
 except ImportError as e:
     print(f"[!] Error: Failed to import 'ltbox' package.", file=sys.stderr)
     print(f"[!] Details: {e}", file=sys.stderr)

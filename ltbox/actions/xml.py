@@ -6,7 +6,8 @@ from pathlib import Path
 from typing import Optional, List, Dict, Any
 
 from ..constants import *
-from .. import utils, imgpatch
+from .. import utils
+from ..crypto import decrypt_file
 
 def _scan_and_decrypt_xmls(lang: Optional[Dict[str, str]] = None) -> List[Path]:
     lang = lang or {}
@@ -28,7 +29,7 @@ def _scan_and_decrypt_xmls(lang: Optional[Dict[str, str]] = None) -> List[Path]:
                 out_path = OUTPUT_XML_DIR / xml_name
                 if not out_path.exists():
                     print(lang.get("act_xml_decrypting", "  > Decrypting {name}...").format(name=x_file.name))
-                    if imgpatch.decrypt_file(str(x_file), str(out_path), lang=lang):
+                    if decrypt_file(str(x_file), str(out_path), lang=lang):
                         xmls.append(out_path)
                     else:
                         print(lang.get("act_xml_decrypt_fail", "  [!] Failed to decrypt {name}").format(name=x_file.name))
@@ -80,6 +81,123 @@ def _ensure_params_or_fail(label: str, lang: Optional[Dict[str, str]] = None) ->
         
     return params
 
+def _modify_xml_algo(wipe: int = 0, lang: Optional[Dict[str, str]] = None) -> None:
+    lang = lang or {}
+    def is_garbage_file(path: Path) -> bool:
+        name = path.name.lower()
+        stem = path.stem.lower()
+        if stem == "rawprogram_unsparse0": return True
+        if "wipe_partitions" in name or "blank_gpt" in name: return True
+        return False
+
+    if OUTPUT_XML_DIR.exists():
+        shutil.rmtree(OUTPUT_XML_DIR)
+    OUTPUT_XML_DIR.mkdir(parents=True, exist_ok=True)
+
+    print(lang.get("img_xml_scan", "[*] Scanning files in 'image' folder..."))
+    
+    x_files = list(IMAGE_DIR.glob("*.x"))
+    xml_files = list(IMAGE_DIR.glob("*.xml"))
+    
+    processed_files = False
+
+    if x_files:
+        print(lang.get("img_xml_found_x", f"[*] Found {len(x_files)} .x files. Decrypting to '{OUTPUT_XML_DIR.name}'...").format(count=len(x_files), dir=OUTPUT_XML_DIR.name))
+        for file in x_files:
+            out_file = OUTPUT_XML_DIR / file.with_suffix('.xml').name
+            try:
+                if decrypt_file(str(file), str(out_file), lang=lang):
+                    print(lang.get("img_xml_decrypt_ok", f"  > Decrypted: {file.name} -> {out_file.name}").format(src=file.name, dst=out_file.name))
+                    processed_files = True
+                else:
+                    print(lang.get("img_xml_decrypt_fail", f"  [!] Decryption failed for {file.name}").format(name=file.name))
+            except Exception as e:
+                print(lang.get("img_xml_decrypt_err", f"  [!] Error decrypting {file.name}: {e}").format(name=file.name, e=e), file=sys.stderr)
+
+    if xml_files:
+        print(lang.get("img_xml_found_xml", f"[*] Found {len(xml_files)} .xml files. Moving to '{OUTPUT_XML_DIR.name}'...").format(count=len(xml_files), dir=OUTPUT_XML_DIR.name))
+        for file in xml_files:
+            out_file = OUTPUT_XML_DIR / file.name
+            try:
+                if out_file.exists():
+                    out_file.unlink()
+                shutil.move(str(file), str(out_file))
+                print(lang.get("img_xml_moved", f"  > Moved: {file.name}").format(name=file.name))
+                processed_files = True
+            except Exception as e:
+                print(lang.get("img_xml_move_err", f"  [!] Error moving {file.name}: {e}").format(name=file.name, e=e), file=sys.stderr)
+
+    if not processed_files:
+        print(lang.get("img_xml_no_files", f"[!] No usable firmware files (.x or .xml) found in '{IMAGE_DIR.name}'. Aborting.").format(dir=IMAGE_DIR.name))
+        shutil.rmtree(OUTPUT_XML_DIR)
+        raise FileNotFoundError(f"No .x or .xml files in {IMAGE_DIR.name}")
+
+    rawprogram4 = OUTPUT_XML_DIR / "rawprogram4.xml"
+    rawprogram_unsparse4 = OUTPUT_XML_DIR / "rawprogram_unsparse4.xml"
+    
+    if not rawprogram4.exists() and rawprogram_unsparse4.exists():
+        print(lang.get("img_xml_copy_raw4", "[*] 'rawprogram4.xml' not found. Copying 'rawprogram_unsparse4.xml'..."))
+        shutil.copy(rawprogram_unsparse4, rawprogram4)
+
+    print(lang.get("img_xml_mod_raw", "\n[*] Modifying 'rawprogram_save_persist_unsparse0.xml'..."))
+    
+    rawprogram_save = OUTPUT_XML_DIR / "rawprogram_save_persist_unsparse0.xml"
+
+    if not rawprogram_save.exists():
+        rawprogram_fallback = OUTPUT_XML_DIR / "rawprogram_unsparse0-half.xml"
+        
+        if rawprogram_fallback.exists():
+            print(lang.get("img_xml_rename_fallback", f"[*] '{rawprogram_save.name}' not found. Renaming '{rawprogram_fallback.name}'...").format(target=rawprogram_save.name, src=rawprogram_fallback.name))
+            try:
+                rawprogram_fallback.rename(rawprogram_save)
+            except OSError as e:
+                print(lang.get("img_xml_rename_err", f"[!] Failed to rename fallback file: {e}").format(e=e), file=sys.stderr)
+                raise
+        else:
+            print(lang.get("img_xml_critical_missing", f"[!] Critical Error: Neither '{rawprogram_save.name}' nor '{rawprogram_fallback.name}' found.").format(f1=rawprogram_save.name, f2=rawprogram_fallback.name))
+            print(lang.get("img_xml_abort_mod", "[!] Cannot proceed with Wipe/No Wipe modification. Aborting."))
+            raise FileNotFoundError(f"Critical XML file missing: {rawprogram_save.name} or {rawprogram_fallback.name}")
+
+    try:
+        with open(rawprogram_save, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        if wipe == 0:
+            print(lang.get("img_xml_nowipe", "  > [NO WIPE] Removing metadata and userdata entries..."))
+            for i in range(1, 11):
+                content = content.replace(f'filename="metadata_{i}.img"', '')
+            for i in range(1, 21):
+                content = content.replace(f'filename="userdata_{i}.img"', '')
+        else:
+            print(lang.get("img_xml_wipe", "  > [WIPE] Skipping metadata and userdata removal."))
+            
+        with open(rawprogram_save, 'w', encoding='utf-8') as f:
+            f.write(content)
+        print(lang.get("img_xml_patch_ok", "  > Patched successfully."))
+    except Exception as e:
+        print(lang.get("img_xml_patch_err", f"[!] Error patching: {e}").format(e=e), file=sys.stderr)
+        raise
+
+    print(lang.get("img_xml_cleanup", "\n[*] Cleaning up unnecessary files in output folder..."))
+    
+    files_to_delete = []
+    for f in OUTPUT_XML_DIR.glob("*.xml"):
+        if is_garbage_file(f):
+            files_to_delete.append(f)
+
+    if files_to_delete:
+        for f in files_to_delete:
+            try:
+                f.unlink()
+                print(lang.get("img_xml_deleted", f"  > Deleted: {f.name}").format(name=f.name))
+            except OSError as e:
+                print(lang.get("img_xml_del_err", f"  [!] Failed to delete {f.name}: {e}").format(name=f.name, e=e))
+    else:
+        print(lang.get("img_xml_no_del", "  > No files to delete."))
+
+    print(lang.get("img_xml_complete", f"[+] XML processing complete. All files are in '{OUTPUT_XML_DIR.name}'.").format(dir=OUTPUT_XML_DIR.name))
+
+
 def modify_xml(wipe: int = 0, skip_dp: bool = False, lang: Optional[Dict[str, str]] = None) -> None:
     lang = lang or {}
     print(lang.get("act_start_xml_mod", "--- Starting XML Modification Process ---"))
@@ -98,7 +216,7 @@ def modify_xml(wipe: int = 0, skip_dp: bool = False, lang: Optional[Dict[str, st
     with utils.temporary_workspace(WORKING_DIR):
         print(lang.get("act_create_temp", "\n[*] Created temporary '{dir}' folder.").format(dir=WORKING_DIR.name))
         try:
-            imgpatch.modify_xml_algo(wipe=wipe, lang=lang)
+            _modify_xml_algo(wipe=wipe, lang=lang)
 
             if not skip_dp:
                 print(lang.get("act_create_write_xml", "\n[*] Creating custom write XMLs for devinfo/persist..."))

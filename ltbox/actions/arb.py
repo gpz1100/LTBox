@@ -4,7 +4,8 @@ from pathlib import Path
 from typing import Optional, Dict, Any, Tuple
 
 from ..constants import *
-from .. import utils, imgpatch
+from .. import utils
+from ..patch.avb import extract_image_avb_info, patch_chained_image_rollback, patch_vbmeta_image_rollback
 
 def read_anti_rollback(dumped_boot_path: Path, dumped_vbmeta_path: Path, lang: Optional[Dict[str, str]] = None) -> Tuple[str, int, int]:
     lang = lang or {}
@@ -20,11 +21,11 @@ def read_anti_rollback(dumped_boot_path: Path, dumped_vbmeta_path: Path, lang: O
             raise FileNotFoundError(lang.get("act_err_dumped_missing", "Dumped boot/vbmeta images not found."))
         
         print(lang.get("act_read_dumped_boot", "[*] Reading from: {name}").format(name=dumped_boot_path.name))
-        boot_info = imgpatch.extract_image_avb_info(dumped_boot_path, lang=lang)
+        boot_info = extract_image_avb_info(dumped_boot_path, lang=lang)
         current_boot_rb = int(boot_info.get('rollback', '0'))
         
         print(lang.get("act_read_dumped_vbmeta", "[*] Reading from: {name}").format(name=dumped_vbmeta_path.name))
-        vbmeta_info = imgpatch.extract_image_avb_info(dumped_vbmeta_path, lang=lang)
+        vbmeta_info = extract_image_avb_info(dumped_vbmeta_path, lang=lang)
         current_vbmeta_rb = int(vbmeta_info.get('rollback', '0'))
         
     except Exception as e:
@@ -48,10 +49,10 @@ def read_anti_rollback(dumped_boot_path: Path, dumped_vbmeta_path: Path, lang: O
     new_boot_rb = 0
     new_vbmeta_rb = 0
     try:
-        new_boot_info = imgpatch.extract_image_avb_info(new_boot_img, lang=lang)
+        new_boot_info = extract_image_avb_info(new_boot_img, lang=lang)
         new_boot_rb = int(new_boot_info.get('rollback', '0'))
         
-        new_vbmeta_info = imgpatch.extract_image_avb_info(new_vbmeta_img, lang=lang)
+        new_vbmeta_info = extract_image_avb_info(new_vbmeta_img, lang=lang)
         new_vbmeta_rb = int(new_vbmeta_info.get('rollback', '0'))
     except Exception as e:
         print(lang.get("act_err_read_new_info", "[!] Error reading new image info: {e}. Please check files.").format(e=e), file=sys.stderr)
@@ -94,7 +95,7 @@ def patch_anti_rollback(comparison_result: Tuple[str, int, int], lang: Optional[
 
         print(lang.get("act_arb_step3", "\n--- [STEP 3] Patching New ROM ---"))
         
-        imgpatch.patch_chained_image_rollback(
+        patch_chained_image_rollback(
             image_name="boot.img",
             current_rb_index=current_boot_rb,
             new_image_path=(IMAGE_DIR / "boot.img"),
@@ -104,7 +105,7 @@ def patch_anti_rollback(comparison_result: Tuple[str, int, int], lang: Optional[
         
         print("-" * 20)
         
-        imgpatch.patch_vbmeta_image_rollback(
+        patch_vbmeta_image_rollback(
             image_name="vbmeta_system.img",
             current_rb_index=current_vbmeta_rb,
             new_image_path=(IMAGE_DIR / "vbmeta_system.img"),

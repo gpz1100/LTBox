@@ -6,7 +6,7 @@ import shutil
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional, Callable, Generator, Any, Union, Dict
+from typing import List, Optional, Callable, Generator, Any, Union, Dict, Tuple
 
 from ltbox.constants import *
 
@@ -131,8 +131,6 @@ def check_dependencies(lang: Optional[Dict[str, str]] = None) -> None:
 
 def require_dependencies(func: Callable) -> Callable:
     def wrapper(*args: Any, **kwargs: Any) -> Any:
-        # Note: wrapper doesn't easily accept lang unless passed in args. 
-        # Assuming default English if not passed explicitly, or caller handles check_dependencies.
         check_dependencies() 
         return func(*args, **kwargs)
     return wrapper
@@ -293,3 +291,41 @@ def clean_workspace(lang: Optional[Dict[str, str]] = None) -> None:
         print(lang.get('utils_no_temp_root', "  > No temporary files found to clean."))
 
     print(lang.get('utils_clean_complete', "\n--- Cleanup Finished ---"))
+
+def _process_binary_file(
+    input_path: Union[str, Path], 
+    output_path: Union[str, Path], 
+    patch_func: Any, 
+    copy_if_unchanged: bool = True,
+    lang: Optional[Dict[str, str]] = None,
+    **kwargs: Any
+) -> bool:
+    lang = lang or {}
+    input_path = Path(input_path)
+    output_path = Path(output_path)
+    
+    if not input_path.exists():
+        print(lang.get("img_proc_err_not_found", f"Error: Input file not found at '{input_path}'").format(path=input_path), file=sys.stderr)
+        return False
+
+    try:
+        content = input_path.read_bytes()
+        modified_content, stats = patch_func(content, lang=lang, **kwargs)
+
+        if stats.get('changed', False):
+            output_path.write_bytes(modified_content)
+            print(lang.get("img_proc_success", f"\nPatch successful! {stats.get('message', 'Modifications applied.')}").format(msg=stats.get('message', 'Modifications applied.')))
+            print(lang.get("img_proc_saved", f"Saved as '{output_path.name}'").format(name=output_path.name))
+            return True
+        else:
+            print(lang.get("img_proc_no_change", f"\n[*] No changes needed for {input_path.name} ({stats.get('message', 'No patterns found')}).").format(name=input_pin.name, msg=stats.get('message', 'No patterns found')))
+            if copy_if_unchanged:
+                print(lang.get("img_proc_copying", f"[*] Copying original file as '{output_path.name}'...").format(name=output_path.name))
+                if input_path != output_path:
+                    shutil.copy(input_path, output_path)
+                return True
+            return False
+
+    except Exception as e:
+        print(lang.get("img_proc_error", f"An error occurred while processing '{input_path.name}': {e}").format(name=input_path.name, e=e), file=sys.stderr)
+        return False

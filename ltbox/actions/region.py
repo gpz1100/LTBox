@@ -7,7 +7,9 @@ from pathlib import Path
 from typing import Optional, List, Dict, Any
 
 from ..constants import *
-from .. import utils, device, imgpatch
+from .. import utils, device
+from ..patch.region import edit_vendor_boot, detect_region_codes, patch_region_codes
+from ..patch.avb import extract_image_avb_info
 
 def convert_images(device_model: Optional[str] = None, skip_adb: bool = False, lang: Optional[Dict[str, str]] = None) -> None:
     lang = lang or {}
@@ -45,7 +47,7 @@ def convert_images(device_model: Optional[str] = None, skip_adb: bool = False, l
         raise
 
     print(lang.get("act_start_conv", "--- Starting PRC/ROW Conversion ---"))
-    imgpatch.edit_vendor_boot(str(vendor_boot_bak), lang=lang)
+    edit_vendor_boot(str(vendor_boot_bak), lang=lang)
 
     vendor_boot_prc = BASE_DIR / "vendor_boot_prc.img"
     print(lang.get("act_verify_conv", "\n[*] Verifying conversion result..."))
@@ -55,8 +57,8 @@ def convert_images(device_model: Optional[str] = None, skip_adb: bool = False, l
     print(lang.get("act_conv_success", "[+] Conversion to PRC successful.\n"))
 
     print(lang.get("act_extract_info", "--- Extracting image information ---"))
-    vbmeta_info = imgpatch.extract_image_avb_info(vbmeta_bak, lang=lang)
-    vendor_boot_info = imgpatch.extract_image_avb_info(vendor_boot_bak, lang=lang)
+    vbmeta_info = extract_image_avb_info(vbmeta_bak, lang=lang)
+    vendor_boot_info = extract_image_avb_info(vendor_boot_bak, lang=lang)
     print(lang.get("act_info_extracted", "[+] Information extracted.\n"))
 
     if device_model and not skip_adb:
@@ -252,7 +254,7 @@ def edit_devinfo_persist(lang: Optional[Dict[str, str]] = None) -> None:
     OUTPUT_DP_DIR.mkdir(exist_ok=True)
 
     print(lang.get("act_detect_codes", "[*] Detecting current region codes in images..."))
-    detected_codes = imgpatch.detect_region_codes(lang=lang)
+    detected_codes = detect_region_codes(lang=lang)
     
     status_messages = []
     files_found = 0
@@ -297,7 +299,7 @@ def edit_devinfo_persist(lang: Optional[Dict[str, str]] = None) -> None:
     if choice == 'y':
         target_map = detected_codes.copy()
         replacement_code = select_country_code(lang.get("act_select_new_code", "SELECT NEW REGION CODE"), lang=lang)
-        imgpatch.patch_region_codes(replacement_code, target_map, lang=lang)
+        patch_region_codes(replacement_code, target_map, lang=lang)
 
         modified_devinfo = BASE_DIR / "devinfo_modified.img"
         modified_persist = BASE_DIR / "persist_modified.img"
