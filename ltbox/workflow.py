@@ -36,9 +36,9 @@ def patch_all(wipe: int = 0, skip_adb: bool = False, lang: Optional[Dict[str, st
     print(lang.get('wf_step2_device_info', "  STEP 2/9: Waiting for ADB/Fastboot Connection & Getting Device Info"))
     print("="*61)
     
-    dev = device.DeviceController(skip_adb=skip_adb)
+    dev = device.DeviceController(skip_adb=skip_adb, lang=lang)
 
-    active_slot_suffix = actions.detect_active_slot_robust(dev, skip_adb)
+    active_slot_suffix = actions.detect_active_slot_robust(dev, skip_adb, lang=lang)
     
     device_model: Optional[str] = None
 
@@ -72,13 +72,13 @@ def patch_all(wipe: int = 0, skip_adb: bool = False, lang: Optional[Dict[str, st
         print("\n" + "="*61)
         print(lang.get('wf_step4_convert', "  STEP 4/9: Converting Firmware (PRC to ROW) & Validating Model"))
         print("="*61)
-        actions.convert_images(device_model=device_model, skip_adb=skip_adb)
+        actions.convert_images(device_model=device_model, skip_adb=skip_adb, lang=lang)
         print(lang.get('wf_step4_complete', "\n--- [STEP 4/9] Firmware Conversion & Validation SUCCESS ---"))
 
         print("\n" + "="*61)
         print(lang.get('wf_step5_modify_xml', "  STEP 5/9: Modifying XML Files"))
         print("="*61)
-        actions.modify_xml(wipe=wipe)
+        actions.modify_xml(wipe=wipe, lang=lang)
         print(lang.get('wf_step5_complete', "\n--- [STEP 5/9] XML Modification SUCCESS ---"))
         
         print("\n" + "="*61)
@@ -96,7 +96,8 @@ def patch_all(wipe: int = 0, skip_adb: bool = False, lang: Optional[Dict[str, st
         dump_status = actions.read_edl_fhloader(
             skip_adb=skip_adb, 
             skip_reset=False, 
-            additional_targets=extra_dumps
+            additional_targets=extra_dumps,
+            lang=lang
         )
 
         if dump_status == "SKIP_DP":
@@ -109,7 +110,7 @@ def patch_all(wipe: int = 0, skip_adb: bool = False, lang: Optional[Dict[str, st
             print("\n" + "="*61)
             print(lang.get('wf_step7_patch_dp', "  STEP 7/9: Patching devinfo/persist"))
             print("="*61)
-            actions.edit_devinfo_persist()
+            actions.edit_devinfo_persist(lang=lang)
             print(lang.get('wf_step7_complete', "\n--- [STEP 7/9] Patching SUCCESS ---"))
         else:
             print("\n" + "="*61)
@@ -127,7 +128,8 @@ def patch_all(wipe: int = 0, skip_adb: bool = False, lang: Optional[Dict[str, st
         
         arb_status_result = actions.read_anti_rollback(
             dumped_boot_path=dumped_boot,
-            dumped_vbmeta_path=dumped_vbmeta
+            dumped_vbmeta_path=dumped_vbmeta,
+            lang=lang
         )
         
         if arb_status_result[0] == 'ERROR':
@@ -138,14 +140,14 @@ def patch_all(wipe: int = 0, skip_adb: bool = False, lang: Optional[Dict[str, st
             print("!"*61)
             sys.exit(1)
 
-        actions.patch_anti_rollback(comparison_result=arb_status_result)
+        actions.patch_anti_rollback(comparison_result=arb_status_result, lang=lang)
         print(lang.get('wf_step8_complete', "\n--- [STEP 8/9] Anti-Rollback Check/Patch SUCCESS ---"))
         
         print("\n" + "="*61)
         print(lang.get('wf_step9_flash', "  [FINAL STEP 9/9] Flashing All Images via EDL"))
         print("="*61)
         print(lang.get('wf_step9_flash_info', "The device will now be flashed with all modified images."))
-        actions.flash_edl(skip_reset_edl=True, skip_dp=skip_dp_workflow) 
+        actions.flash_edl(skip_reset_edl=True, skip_dp=skip_dp_workflow, lang=lang) 
         
         print("\n" + "=" * 61)
         print(lang.get('wf_process_complete', "  FULL PROCESS COMPLETE!"))
