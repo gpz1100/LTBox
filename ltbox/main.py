@@ -90,6 +90,7 @@ def setup_console():
 setup_console()
 lang, lang_code = select_language()
 
+os.system('cls' if os.name == 'nt' else 'clear')
 print(lang.get("dl_base_installing", "\n[*] Installing external tools (fetch, adb, avbtool)..."))
 try:
     subprocess.run(
