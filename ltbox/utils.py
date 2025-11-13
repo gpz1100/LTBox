@@ -125,21 +125,6 @@ def check_dependencies() -> None:
 
     print(get_string('utils_deps_found'))
 
-def require_dependencies(func: Callable) -> Callable:
-    def wrapper(*args: Any, **kwargs: Any) -> Any:
-        check_dependencies() 
-        return func(*args, **kwargs)
-    return wrapper
-
-@contextmanager
-def working_directory(path: Path) -> Generator[None, None, None]:
-    origin = Path.cwd()
-    try:
-        os.chdir(path)
-        yield
-    finally:
-        os.chdir(origin)
-
 @contextmanager
 def temporary_workspace(path: Path) -> Generator[Path, None, None]:
     if path.exists():
@@ -153,63 +138,6 @@ def temporary_workspace(path: Path) -> Generator[Path, None, None]:
                 shutil.rmtree(path)
             except OSError as e:
                 print(f"Warning: Failed to clean up temporary workspace {path}: {e}", file=sys.stderr)
-
-def show_image_info(files: List[str]) -> None:
-    all_files: List[Path] = []
-    for f in files:
-        path = Path(f)
-        if path.is_dir():
-            all_files.extend(path.rglob('*.img'))
-        elif path.is_file():
-            all_files.append(path)
-
-    if not all_files:
-        print(get_string('scan_no_files'))
-        return
-        
-    output_lines = [
-        "\n" + "=" * 42,
-        get_string('utils_processing_images'),
-        "=" * 42 + "\n"
-    ]
-    print("\n".join(output_lines))
-
-    for file_path in sorted(all_files):
-        info_header = get_string('utils_processing_file').format(file_path=file_path) 
-        print(info_header)
-        output_lines.append(info_header)
-
-        if not file_path.exists():
-            not_found_msg = get_string('utils_file_not_found').format(file_path=file_path)
-            print(not_found_msg)
-            output_lines.append(not_found_msg)
-            continue
-
-        try:
-            process = run_command(
-                [str(PYTHON_EXE), str(AVBTOOL_PY), "info_image", "--image", str(file_path)],
-                capture=True
-            )
-            output_text = process.stdout.strip()
-            print(output_text)
-            output_lines.append(output_text)
-        except (subprocess.CalledProcessError) as e:
-            error_message = get_string('scan_failed').format(filename=file_path.name, e="")
-            print(error_message, file=sys.stderr)
-            if e.stderr:
-                print(e.stderr.strip(), file=sys.stderr)
-            output_lines.append(error_message)
-        finally:
-            output_lines.append("---------------------------------\n")
-
-    try:
-        timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
-        output_filename = BASE_DIR / f"image_info_{timestamp}.txt"
-        with open(output_filename, "w", encoding="utf-8") as f:
-            f.write("\n".join(output_lines))
-        print(get_string('scan_saved_to').format(filename=output_filename))
-    except IOError as e:
-        print(get_string('utils_save_error').format(e=e), file=sys.stderr)
 
 def clean_workspace() -> None:
     print(get_string('utils_cleaning_title'))

@@ -41,23 +41,6 @@ def edit_vendor_boot(input_file_path: str) -> None:
     if not utils._process_binary_file(input_file, output_file, _patch_vendor_boot_logic, copy_if_unchanged=True):
         sys.exit(1)
 
-def check_target_exists(target_code: str) -> bool:
-    target_bytes = f"{target_code.upper()}XX".encode('ascii')
-    files_to_check = [BASE_DIR / "devinfo.img", BASE_DIR / "persist.img"]
-    found = False
-    
-    for f in files_to_check:
-        if not f.exists():
-            continue
-        try:
-            content = f.read_bytes()
-            if content.count(target_bytes) > 0:
-                found = True
-                break
-        except Exception as e:
-            print(get_string("img_chk_err_read").format(name=f.name, e=e), file=sys.stderr)
-    return found
-
 def detect_region_codes() -> Dict[str, Optional[str]]:
     results: Dict[str, Optional[str]] = {}
     files_to_check = ["devinfo.img", "persist.img"]
