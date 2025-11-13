@@ -5,7 +5,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Tuple
 
 from .. import constants as const
 from .. import utils, device
@@ -195,35 +195,7 @@ def write_anti_rollback(dev: device.DeviceController, skip_reset: bool = False) 
     
     print(get_string("act_arb_write_finish"))
 
-def flash_edl(dev: device.DeviceController, skip_reset: bool = False, skip_reset_edl: bool = False, skip_dp: bool = False) -> None:
-    print(get_string("act_start_flash"))
-    
-    if not const.IMAGE_DIR.is_dir() or not any(const.IMAGE_DIR.iterdir()):
-        print(get_string("act_err_image_empty").format(dir=const.IMAGE_DIR.name))
-        print(get_string("act_err_run_xml_mod"))
-        raise FileNotFoundError(get_string("act_err_image_empty_exc").format(dir=const.IMAGE_DIR.name))
-        
-    loader_path = const.EDL_LOADER_FILE
-    if not loader_path.exists():
-        print(get_string("act_err_loader_missing").format(name=loader_path.name, dir=const.IMAGE_DIR.name))
-        print(get_string("act_err_copy_loader"))
-        raise FileNotFoundError(get_string("act_err_loader_missing_exc").format(name=loader_path.name, dir=const.IMAGE_DIR.name))
-
-    if not skip_reset_edl:
-        print("\n" + "="*61)
-        print(get_string("act_warn_overwrite_1"))
-        print(get_string("act_warn_overwrite_2"))
-        print(get_string("act_warn_overwrite_3"))
-        print("="*61 + "\n")
-        
-        choice = ""
-        while choice not in ['y', 'n']:
-            choice = input(get_string("act_ask_continue")).lower().strip()
-
-        if choice == 'n':
-            print(get_string("act_op_cancel"))
-            return
-
+def _prepare_flash_files(skip_dp: bool = False) -> None:
     print(get_string("act_copy_patched"))
     output_folders_to_copy = [
         const.OUTPUT_DIR, 
@@ -257,8 +229,7 @@ def flash_edl(dev: device.DeviceController, skip_reset: bool = False, skip_reset
     if copied_count == 0:
         print(get_string("act_no_output_folders"))
 
-    port = dev.setup_edl_connection()
-
+def _select_flash_xmls(skip_dp: bool = False) -> Tuple[List[Path], List[Path]]:
     raw_xmls = [f for f in const.IMAGE_DIR.glob("rawprogram*.xml") if f.name != "rawprogram0.xml"]
     patch_xmls = list(const.IMAGE_DIR.glob("patch*.xml"))
     
@@ -290,6 +261,43 @@ def flash_edl(dev: device.DeviceController, skip_reset: bool = False, skip_reset
         print(get_string("act_err_xml_missing").format(dir=const.IMAGE_DIR.name))
         print(get_string("act_err_flash_aborted"))
         raise FileNotFoundError(get_string("act_err_xml_missing_exc").format(dir=const.IMAGE_DIR.name))
+    
+    return raw_xmls, patch_xmls
+
+def flash_edl(dev: device.DeviceController, skip_reset: bool = False, skip_reset_edl: bool = False, skip_dp: bool = False) -> None:
+    print(get_string("act_start_flash"))
+    
+    if not const.IMAGE_DIR.is_dir() or not any(const.IMAGE_DIR.iterdir()):
+        print(get_string("act_err_image_empty").format(dir=const.IMAGE_DIR.name))
+        print(get_string("act_err_run_xml_mod"))
+        raise FileNotFoundError(get_string("act_err_image_empty_exc").format(dir=const.IMAGE_DIR.name))
+        
+    loader_path = const.EDL_LOADER_FILE
+    if not loader_path.exists():
+        print(get_string("act_err_loader_missing").format(name=loader_path.name, dir=const.IMAGE_DIR.name))
+        print(get_string("act_err_copy_loader"))
+        raise FileNotFoundError(get_string("act_err_loader_missing_exc").format(name=loader_path.name, dir=const.IMAGE_DIR.name))
+
+    if not skip_reset_edl:
+        print("\n" + "="*61)
+        print(get_string("act_warn_overwrite_1"))
+        print(get_string("act_warn_overwrite_2"))
+        print(get_string("act_warn_overwrite_3"))
+        print("="*61 + "\n")
+        
+        choice = ""
+        while choice not in ['y', 'n']:
+            choice = input(get_string("act_ask_continue")).lower().strip()
+
+        if choice == 'n':
+            print(get_string("act_op_cancel"))
+            return
+
+    _prepare_flash_files(skip_dp)
+
+    port = dev.setup_edl_connection()
+
+    raw_xmls, patch_xmls = _select_flash_xmls(skip_dp)
         
     print(get_string("act_flash_step1"))
     
