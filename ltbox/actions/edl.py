@@ -12,24 +12,6 @@ from .. import utils, device
 from .xml import _ensure_params_or_fail
 from ..i18n import get_string
 
-def _fh_loader_write_part(port, image_path, lun, start_sector):
-    if not FH_LOADER_EXE.exists():
-        raise FileNotFoundError(get_string("act_err_fh_exe_missing").format(path=FH_LOADER_EXE))
-        
-    port_str = f"\\\\.\\{port}"
-    cmd = [
-        str(FH_LOADER_EXE),
-        f"--port={port_str}",
-        f"--sendimage={image_path}",
-        f"--lun={lun}",
-        f"--start_sector={start_sector}",
-        "--zlpawarehost=1",
-        "--noprompt",
-        "--memoryname=UFS"
-    ]
-    print(get_string("act_flash_part").format(name=image_path.name, lun=lun, start=start_sector))
-    utils.run_command(cmd)
-
 def read_edl(skip_adb: bool = False, skip_reset: bool = False, additional_targets: Optional[List[str]] = None) -> None:
     print(get_string("act_start_dump"))
     

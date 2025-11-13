@@ -12,7 +12,6 @@ from .. import utils, device, downloader
 from ..downloader import ensure_magiskboot
 from .xml import _ensure_params_or_fail
 from .system import detect_active_slot_robust
-from .edl import _fh_loader_write_part
 from ..patch.root import patch_boot_with_root_algo
 from ..patch.avb import process_boot_image_avb
 from ..i18n import get_string
@@ -211,7 +210,7 @@ def root_device(skip_adb=False) -> None:
          params = _ensure_params_or_fail(target_partition)
 
     try:
-        _fh_loader_write_part(
+        dev.fh_loader_write_part(
             port=port,
             image_path=final_boot_img,
             lun=params['lun'],
@@ -274,7 +273,7 @@ def unroot_device(skip_adb=False) -> None:
         params = _ensure_params_or_fail(target_partition)
         print(get_string("act_found_dump_info").format(xml=params['source_xml'], lun=params['lun'], start=params['start_sector']))
         
-        _fh_loader_write_part(
+        dev.fh_loader_write_part(
             port=port,
             image_path=backup_boot_file,
             lun=params['lun'],
