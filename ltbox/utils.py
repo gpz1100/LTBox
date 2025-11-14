@@ -77,7 +77,7 @@ def _wait_for_resource(
         try:
             input()
         except EOFError:
-            sys.exit(1)
+            raise RuntimeError(get_string('process_cancelled'))
 
 def wait_for_files(directory: Path, required_files: List[str], prompt_message: str) -> bool:
     return _wait_for_resource(
@@ -112,7 +112,7 @@ def check_dependencies() -> None:
         for name in missing_deps:
             print(get_string('utils_missing_dep').format(name=name))
         print(get_string('utils_run_install'))
-        sys.exit(1)
+        raise RuntimeError(get_string('utils_run_install'))
 
     print(get_string('utils_deps_found'))
 

@@ -15,6 +15,12 @@ BASE_DIR = APP_DIR.parent
 PYTHON_EXE = BASE_DIR / "python3" / "python.exe"
 DOWNLOADER_PY = APP_DIR / "downloader.py"
 
+try:
+    from .downloader import ToolError
+except ImportError:
+    class ToolError(Exception):
+        pass
+
 def setup_console():
     system = platform.system()
     if system == "Windows":
@@ -46,7 +52,7 @@ def check_path_encoding():
             os.system("pause")
         else:
             input(get_string("press_enter_to_exit"))
-        sys.exit(1)
+        raise RuntimeError(get_string("critical_error_path_encoding"))
 
 def run_task(command, title, dev, command_map):
     os.system('cls' if os.name == 'nt' else 'clear')
@@ -82,7 +88,7 @@ def run_task(command, title, dev, command_map):
             
             func(**final_kwargs)
 
-    except (subprocess.CalledProcessError, FileNotFoundError, RuntimeError, KeyError) as e:
+    except (subprocess.CalledProcessError, FileNotFoundError, RuntimeError, KeyError, ToolError) as e:
         if not isinstance(e, SystemExit):
             print(get_string("unexpected_error").format(e=e), file=sys.stderr)
     except SystemExit:
@@ -282,83 +288,94 @@ def main_loop(device_controller_class, command_map):
                 input(get_string("press_enter_to_continue"))
 
 def entry_point():
-    setup_console()
-    
-    is_info_mode = len(sys.argv) > 1 and sys.argv[1].lower() == 'info'
-    
-    if is_info_mode:
-        lang_code = "en"
-    else:
-        lang_code = i18n.select_language()
-        
-    i18n.load_lang(lang_code)
-    
-    os.system('cls' if os.name == 'nt' else 'clear')
-    print(get_string("dl_base_installing"))
     try:
-        subprocess.run(
-            [str(PYTHON_EXE), str(DOWNLOADER_PY), "install_base_tools", "--lang", lang_code],
-            check=True,
-            encoding='utf-8',
-            errors='ignore'
-        )
-    except (subprocess.CalledProcessError, FileNotFoundError) as e:
-        print(f"[!] Critical Error: Failed to install base tools: {e}", file=sys.stderr)
-        print("[!] Please run 'ltbox/install.bat' manually and try again.", file=sys.stderr)
-        if platform.system() == "Windows":
-            os.system("pause")
-        sys.exit(1)
-
-    try:
-        from . import utils as u, actions as a, workflow as w, device as d
-        from . import constants as c
-        from .patch import avb as avb
+        setup_console()
         
-        COMMAND_MAP = {
-            "convert": (a.convert_images, {}),
-            "root_device": (a.root_device, {}),
-            "root_boot_only": (a.root_boot_only, {}),
-            "unroot_device": (a.unroot_device, {}),
-            "disable_ota": (a.disable_ota, {}),
-            "edit_dp": (a.edit_devinfo_persist, {}),
-            "read_edl": (a.read_edl, {}),
-            "write_edl": (a.write_edl, {}),
-            "read_anti_rollback": (a.read_anti_rollback, {}),
-            "patch_anti_rollback": (a.patch_anti_rollback, {}),
-            "write_anti_rollback": (a.write_anti_rollback, {}),
-            "clean": (u.clean_workspace, {}),
-            "modify_xml": (a.modify_xml, {"wipe": 0}),
-            "modify_xml_wipe": (a.modify_xml, {"wipe": 1}),
-            "flash_edl": (a.flash_edl, {}),
-            "patch_all": (w.patch_all, {"wipe": 0}),
-            "patch_all_wipe": (w.patch_all, {"wipe": 1}),
-        }
+        is_info_mode = len(sys.argv) > 1 and sys.argv[1].lower() == 'info'
         
-        device_controller_class = d.DeviceController
-        constants_module = c
-        avb_patch_module = avb
-
-    except ImportError as e:
-        print(f"[!] Error: Failed to import 'ltbox' package.", file=sys.stderr)
-        print(f"[!] Details: {e}", file=sys.stderr)
-        print(f"[!] Please ensure the 'ltbox' folder and its files are present.", file=sys.stderr)
-        if platform.system() == "Windows":
-            os.system("pause")
-        sys.exit(1)
-
-    check_path_encoding()
-    
-    if is_info_mode:
-        if len(sys.argv) > 2:
-            run_info_scan(sys.argv[2:], constants_module, avb_patch_module)
+        if is_info_mode:
+            lang_code = "en"
         else:
-            print(get_string("info_no_files_dragged"), file=sys.stderr)
-            print(get_string("info_drag_files_prompt"), file=sys.stderr)
+            lang_code = i18n.select_language()
+            
+        i18n.load_lang(lang_code)
         
-        if platform.system() == "Windows":
-            os.system("pause")
+        os.system('cls' if os.name == 'nt' else 'clear')
+        print(get_string("dl_base_installing"))
+        try:
+            subprocess.run(
+                [str(PYTHON_EXE), str(DOWNLOADER_PY), "install_base_tools", "--lang", lang_code],
+                check=True,
+                encoding='utf-8',
+                errors='ignore'
+            )
+        except (subprocess.CalledProcessError, FileNotFoundError) as e:
+            print(f"[!] Critical Error: Failed to install base tools: {e}", file=sys.stderr)
+            print("[!] Please run 'ltbox/install.bat' manually and try again.", file=sys.stderr)
+            if platform.system() == "Windows":
+                os.system("pause")
+            sys.exit(1)
+
+        try:
+            from . import utils as u, actions as a, workflow as w, device as d
+            from . import constants as c
+            from .patch import avb as avb
+            
+            COMMAND_MAP = {
+                "convert": (a.convert_images, {}),
+                "root_device": (a.root_device, {}),
+                "root_boot_only": (a.root_boot_only, {}),
+                "unroot_device": (a.unroot_device, {}),
+                "disable_ota": (a.disable_ota, {}),
+                "edit_dp": (a.edit_devinfo_persist, {}),
+                "read_edl": (a.read_edl, {}),
+                "write_edl": (a.write_edl, {}),
+                "read_anti_rollback": (a.read_anti_rollback, {}),
+                "patch_anti_rollback": (a.patch_anti_rollback, {}),
+                "write_anti_rollback": (a.write_anti_rollback, {}),
+                "clean": (u.clean_workspace, {}),
+                "modify_xml": (a.modify_xml, {"wipe": 0}),
+                "modify_xml_wipe": (a.modify_xml, {"wipe": 1}),
+                "flash_edl": (a.flash_edl, {}),
+                "patch_all": (w.patch_all, {"wipe": 0}),
+                "patch_all_wipe": (w.patch_all, {"wipe": 1}),
+            }
+            
+            device_controller_class = d.DeviceController
+            constants_module = c
+            avb_patch_module = avb
+
+        except ImportError as e:
+            print(f"[!] Error: Failed to import 'ltbox' package.", file=sys.stderr)
+            print(f"[!] Details: {e}", file=sys.stderr)
+            print(f"[!] Please ensure the 'ltbox' folder and its files are present.", file=sys.stderr)
+            if platform.system() == "Windows":
+                os.system("pause")
+            sys.exit(1)
+
+        check_path_encoding()
+        
+        if is_info_mode:
+            if len(sys.argv) > 2:
+                run_info_scan(sys.argv[2:], constants_module, avb_patch_module)
+            else:
+                print(get_string("info_no_files_dragged"), file=sys.stderr)
+                print(get_string("info_drag_files_prompt"), file=sys.stderr)
+            
+            if platform.system() == "Windows":
+                os.system("pause")
     else:
         main_loop(device_controller_class, COMMAND_MAP)
+
+    except (RuntimeError, ToolError) as e:
+        print(f"\n[!] A fatal error occurred. Aborting.", file=sys.stderr)
+        print(f"[!] Details: {e}", file=sys.stderr)
+        if platform.system() == "Windows":
+            os.system("pause")
+        sys.exit(1)
+    except KeyboardInterrupt:
+        print(f"\n[!] Process cancelled by user.", file=sys.stderr)
+        sys.exit(0)
 
 if __name__ == "__main__":
     entry_point()

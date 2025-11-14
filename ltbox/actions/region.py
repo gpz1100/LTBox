@@ -69,7 +69,7 @@ def convert_images(dev: device.DeviceController, device_model: Optional[str] = N
             else:
                 print(get_string("act_model_mismatch").format(model=device_model))
                 print(get_string("act_rom_mismatch_abort"))
-                raise SystemExit(get_string("act_err_firmware_mismatch"))
+                raise RuntimeError(get_string("act_err_firmware_mismatch"))
         else:
             print(get_string("act_warn_fp_missing").format(key=fingerprint_key))
             print(get_string("act_skip_val"))
@@ -193,7 +193,7 @@ def select_country_code(prompt_message: str = "Please select a country from the 
             print(get_string("act_invalid_input"))
         except (KeyboardInterrupt, EOFError):
             print(get_string("act_select_cancel"))
-            sys.exit(1)
+            raise KeyboardInterrupt(get_string("act_select_cancel"))
 
 def edit_devinfo_persist() -> None:
     print(get_string("act_start_dp_patch"))
@@ -223,7 +223,7 @@ def edit_devinfo_persist() -> None:
             try:
                 input()
             except EOFError:
-                sys.exit(1)
+                raise RuntimeError(get_string('process_cancelled'))
 
     if devinfo_img_src.exists():
         shutil.copy(devinfo_img_src, devinfo_img)

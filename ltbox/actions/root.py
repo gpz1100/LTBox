@@ -9,7 +9,7 @@ from typing import Optional, Dict
 
 from .. import constants as const
 from .. import utils, device, downloader
-from ..downloader import ensure_magiskboot
+from ..downloader import ensure_magiskboot, ToolError
 from ..partition import ensure_params_or_fail
 from .system import detect_active_slot_robust
 from ..patch.root import patch_boot_with_root_algo
@@ -44,11 +44,11 @@ def root_boot_only() -> None:
         print(get_string("act_copy_boot").format(name=boot_img_src.name))
     except (IOError, OSError) as e:
         print(get_string("act_err_copy_boot").format(name=boot_img_src.name, e=e), file=sys.stderr)
-        sys.exit(1)
+        raise ToolError(get_string("act_err_copy_boot").format(name=boot_img_src.name, e=e))
 
     if not boot_img.exists():
         print(get_string("act_err_boot_missing"))
-        sys.exit(1)
+        raise ToolError(get_string("act_err_boot_missing"))
 
     shutil.copy(boot_img, const.BASE_DIR / "boot.bak.img")
     print(get_string("act_backup_boot"))
@@ -172,7 +172,7 @@ def root_device(dev: device.DeviceController) -> None:
         if not (patched_boot_path and patched_boot_path.exists()):
             print(get_string("act_err_root_fail"), file=sys.stderr)
             base_boot_bak.unlink(missing_ok=True)
-            sys.exit(1)
+            raise ToolError(get_string("act_err_root_fail"))
 
         print(get_string("act_root_step5"))
         try:

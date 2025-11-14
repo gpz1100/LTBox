@@ -49,7 +49,7 @@ def edit_vendor_boot(input_file_path: str) -> None:
     output_file = input_file.parent / "vendor_boot_prc.img"
     
     if not utils._process_binary_file(input_file, output_file, _patch_vendor_boot_logic, copy_if_unchanged=True):
-        sys.exit(1)
+        raise RuntimeError("Failed to process vendor_boot binary.")
 
 def detect_region_codes() -> Dict[str, Optional[str]]:
     results: Dict[str, Optional[str]] = {}
@@ -112,8 +112,9 @@ def _patch_region_code_logic(mm: Any, **kwargs: Any) -> Dict[str, Any]:
 
 def patch_region_codes(replacement_code: str, target_map: Dict[str, Optional[str]]) -> int:
     if not replacement_code or len(replacement_code) != 2:
-        print(get_string("img_patch_code_err").format(code=replacement_code), file=sys.stderr)
-        sys.exit(1)
+        msg = get_string("img_patch_code_err").format(code=replacement_code)
+        print(msg, file=sys.stderr)
+        raise RuntimeError(msg)
         
     total_patched = 0
     files_to_output = {

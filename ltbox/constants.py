@@ -18,11 +18,9 @@ def load_config():
             with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
                 _config = json.load(f)
         except Exception as e:
-            print(f"[!] Critical Error: Failed to load config.json: {e}", file=sys.stderr)
-            sys.exit(1)
+            raise RuntimeError(f"[!] Critical Error: Failed to load config.json: {e}")
     else:
-        print(f"[!] Critical Error: Configuration file missing: {CONFIG_FILE}", file=sys.stderr)
-        sys.exit(1)
+        raise RuntimeError(f"[!] Critical Error: Configuration file missing: {CONFIG_FILE}")
 
 def _get_cfg(section: str, key: str) -> str:
     if not _config:
@@ -30,8 +28,7 @@ def _get_cfg(section: str, key: str) -> str:
     try:
         return _config[section][key]
     except KeyError:
-        print(f"[!] Critical Error: Missing configuration key: [{section}][{key}]", file=sys.stderr)
-        sys.exit(1)
+        raise RuntimeError(f"[!] Critical Error: Missing configuration key: [{section}][{key}]")
 
 OUTPUT_DIR = BASE_DIR / "output"
 OUTPUT_ROOT_DIR = BASE_DIR / "output_root"

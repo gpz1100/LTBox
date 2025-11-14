@@ -230,16 +230,13 @@ def ensure_magiskboot() -> Path:
         'ARM64': "magiskboot-.*-windows-.*-arm64-standalone\\.zip",
     }
     
-    try:
-        return _ensure_tool_from_github_release(
-            tool_name="magiskboot",
-            exe_name_in_zip="magiskboot.exe",
-            repo_url=const.MAGISKBOOT_REPO_URL,
-            tag=const.MAGISKBOOT_TAG,
-            asset_patterns=asset_patterns
-        )
-    except ToolError:
-        sys.exit(1)
+    return _ensure_tool_from_github_release(
+        tool_name="magiskboot",
+        exe_name_in_zip="magiskboot.exe",
+        repo_url=const.MAGISKBOOT_REPO_URL,
+        tag=const.MAGISKBOOT_TAG,
+        asset_patterns=asset_patterns
+    )
 
 def get_gki_kernel(kernel_version: str, work_dir: Path) -> Path:
     print(get_string("dl_gki_downloading"))
@@ -253,7 +250,7 @@ def get_gki_kernel(kernel_version: str, work_dir: Path) -> Path:
     downloaded_files = list(work_dir.glob(f"*{kernel_version}*Normal-AnyKernel3.zip"))
     if not downloaded_files:
         print(get_string("dl_gki_download_fail").format(version=kernel_version))
-        sys.exit(1)
+        raise ToolError(get_string("dl_gki_download_fail").format(version=kernel_version))
     
     anykernel_zip = work_dir / const.ANYKERNEL_ZIP_FILENAME
     shutil.move(downloaded_files[0], anykernel_zip)
@@ -267,7 +264,7 @@ def get_gki_kernel(kernel_version: str, work_dir: Path) -> Path:
     kernel_image = extracted_kernel_dir / "Image"
     if not kernel_image.exists():
         print(get_string("dl_gki_image_missing"))
-        sys.exit(1)
+        raise ToolError(get_string("dl_gki_image_missing"))
     print(get_string("dl_gki_extract_ok"))
     return kernel_image
 

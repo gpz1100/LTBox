@@ -43,11 +43,11 @@ def patch_all(dev: device.DeviceController, wipe: int = 0) -> None:
         try:
             device_model = dev.get_device_model()
             if not device_model:
-                raise SystemExit(get_string('wf_err_adb_model'))
+                raise RuntimeError(get_string('wf_err_adb_model'))
             else:
                 print(get_string('wf_device_model').format(model=device_model))
         except Exception as e:
-             raise SystemExit(get_string('wf_err_get_model').format(e=e))
+             raise RuntimeError(get_string('wf_err_get_model').format(e=e))
 
     active_slot_str = active_slot_suffix if active_slot_suffix else get_string('wf_active_slot_unknown')
     print(get_string('wf_active_slot').format(slot=active_slot_str))
@@ -128,7 +128,7 @@ def patch_all(dev: device.DeviceController, wipe: int = 0) -> None:
             print(get_string('wf_step8_err_arb_check_detail'))
             print(get_string('wf_step8_err_arb_abort'))
             print("!"*61)
-            sys.exit(1)
+            raise RuntimeError(get_string('wf_step8_err_arb_abort'))
 
         actions.patch_anti_rollback(comparison_result=arb_status_result)
         print(get_string('wf_step8_complete'))
@@ -149,12 +149,14 @@ def patch_all(dev: device.DeviceController, wipe: int = 0) -> None:
         print(get_string('wf_err_halted'))
         print(get_string('wf_err_details').format(e=e))
         print("!" * 61)
-        sys.exit(1)
+        raise
     except SystemExit as e:
         print("\n" + "!" * 61)
         print(get_string('wf_err_halted_script').format(e=e))
         print("!" * 61)
+        raise
     except KeyboardInterrupt:
         print("\n" + "!" * 61)
         print(get_string('wf_err_cancelled'))
         print("!" * 61)
+        raise

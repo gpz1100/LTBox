@@ -17,7 +17,7 @@ def select_language() -> str:
         print(f"[!] Expected path: {LANG_DIR}", file=sys.stderr)
         if platform.system() == "Windows":
             os.system("pause")
-        sys.exit(1)
+        raise RuntimeError(f"Language directory not found: {LANG_DIR}")
 
     lang_files = sorted(list(LANG_DIR.glob("*.json")))
     if not lang_files:
@@ -25,7 +25,7 @@ def select_language() -> str:
         print(f"[!] Path: {LANG_DIR}", file=sys.stderr)
         if platform.system() == "Windows":
             os.system("pause")
-        sys.exit(1)
+        raise RuntimeError(f"No language files found in {LANG_DIR}")
 
     available_languages = {}
     menu_options = []
@@ -85,3 +85,4 @@ def get_string(key: str, default: str = "") -> str:
     if val:
         return val
     return f"[{key}]"
+}
