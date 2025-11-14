@@ -317,9 +317,6 @@ class DeviceController:
         
         dest_dir.mkdir(parents=True, exist_ok=True)
 
-        env = os.environ.copy()
-        env['PATH'] = str(const.TOOLS_DIR) + os.pathsep + str(const.DOWNLOAD_DIR) + os.pathsep + env['PATH']
-
         port_str = f"\\\\.\\{port}"
         cmd_fh = [
             str(const.FH_LOADER_EXE),
@@ -337,7 +334,7 @@ class DeviceController:
         print(get_string("device_dumping_part").format(lun=lun, start=start_sector, num=num_sectors))
         
         try:
-            subprocess.run(cmd_fh, cwd=dest_dir, env=env, check=True)
+            utils.run_command(cmd_fh, cwd=dest_dir, check=True)
         except subprocess.CalledProcessError as e:
             print(get_string("device_err_fh_exec").format(e=e), file=sys.stderr)
             raise
@@ -371,12 +368,9 @@ class DeviceController:
         ]
         
         print(get_string("device_flashing_part").format(filename=filename, lun=lun, start=start_sector))
-        
-        env = os.environ.copy()
-        env['PATH'] = str(const.TOOLS_DIR) + os.pathsep + str(const.DOWNLOAD_DIR) + os.pathsep + env['PATH']
 
         try:
-            subprocess.run(cmd_fh, cwd=work_dir, env=env, check=True)
+            utils.run_command(cmd_fh, cwd=work_dir, check=True)
             print(get_string("device_flash_success").format(filename=filename))
         except subprocess.CalledProcessError as e:
             print(get_string("device_err_flash_exec").format(e=e), file=sys.stderr)
