@@ -64,7 +64,7 @@
   "menu_root_title": "   LTBox - 루팅 메뉴",
   "menu_root_1_gki": "   1. boot.img 파일 패치 ('image' 폴더)",
   "menu_root_2_gki": "   2. 기기에서 boot.img 추출 후 패치",
-  "menu_root_1_lkm": "   1. init_boot.img 파일 패치 ('image' 폴더)",
+  "menu_root_1_lkm": "   1. KernelSU Next 앱으로 init_boot.img 패치 ('image' 폴더)",
   "menu_root_2_lkm": "   2. 기기에서 init_boot.img 추출 후 패치",
   "menu_root_m": "   m. 메인으로 돌아가기",
   "menu_root_prompt": "  선택하세요 (1, 2, m): ",
@@ -75,7 +75,7 @@
   "task_title_root_gki": "기기 루팅 (GKI 모드)",
   "task_title_root_file_gki": "루팅: boot.img 파일 패치 (GKI 모드)",
   "task_title_root_lkm": "기기 루팅 (LKM 모드)",
-  "task_title_root_file_lkm": "루팅: init_boot.img 파일 패치 (LKM 모드)",
+  "task_title_root_file_lkm": "루팅: KernelSU Next 앱으로 init_boot.img 패치 (LKM 모드)",
   "task_title_unroot": "기기 언루팅",
   "task_title_convert_rom": "ROM 지역 변환 (ROW -> PRC)",
   "task_title_dump_devinfo": "devinfo/persist 파티션 추출",
@@ -683,7 +683,7 @@
   "menu_lang_invalid": "    [!] 잘못된 선택입니다. 1에서 {len} 사이의 숫자를 입력하세요.",
   "err_load_fallback_lang": "[!] 폴백 언어 en.json 로드 실패: {e}",
   "err_load_lang": "[!] 언어 {lang_code} 로드 실패, 폴백 사용: {e}",
-  "wf_notice_widevine": "만약 Widevine이 L3로 나타난다면, 시스템 재부팅을 한 번 하고 스트리밍 앱을 삭제 및 재설치 후 다시 확인해보세요."
+  "wf_notice_widevine": "만약 Widevine이 L3로 나타난다면, 시스템 재부팅을 한 번 하고 스트리밍 앱을 삭제 및 재설치 후 다시 확인해보세요.",
   "img_root_lkm_no_dev": "[!] LKM 패치에는 기기 연결(ADB)이 필요합니다. 중단합니다.",
   "img_root_lkm_download": "[*] LKM 패치 파일(ksuinit, kernelsu.ko)을 다운로드 중입니다...",
   "img_root_lkm_download_fail": "[!] LKM 파일 다운로드 실패: {e}",
@@ -695,5 +695,15 @@
   "dl_lkm_kver_found": "[+] 커널 버전: {ver}",
   "dl_lkm_downloading": "[*] LKM 커널 모듈 다운로드 중: {asset}...",
   "dl_lkm_download_fail": "[!] {asset} 다운로드 실패. GitHub에 일치하는 커널 모듈이 있는지 확인하세요.",
-  "dl_lkm_download_ok": "[+] LKM 커널 모듈 다운로드 완료."
+  "dl_lkm_download_ok": "[+] LKM 커널 모듈 다운로드 완료.",
+  "act_prompt_init_boot_app": "[1단계] 순정 'init_boot.img'를\n         '{name}' 폴더에 넣으세요.",
+  "act_push_init_boot": "[*] 'init_boot.img'를 /sdcard/로 PUSH 중...",
+  "act_err_push_init_boot": "[!] 'init_boot.img' PUSH 실패: {e}",
+  "act_prompt_patch_app": "\n[조치 필요]\n  1. KernelSU Next 앱을 엽니다.\n  2. '눌러서 설치하기'를 선택합니다.\n  3. 내부 저장소 최상단에 있는 'init_boot.img' 파일을 선택합니다.\n  4. 패치를 진행합니다. 패치된 파일은 'Downloads' 폴더에 저장됩니다.",
+  "act_find_patched_file": "[*] /sdcard/Downloads/ 에서 패치된 파일 찾는 중...",
+  "act_err_no_patched_files": "[!] /sdcard/Downloads/ 에서 'kernelsu_patched_*.img' 파일을 찾을 수 없습니다. 패치를 진행했나요?",
+  "act_pull_patched_file": "[*] 최신 파일 PULL 중: {file}...",
+  "act_err_pull_failed": "[!] 패치된 파일 PULL 실패",
+  "act_err_pull_process": "[!] 패치/PULL 과정 중 오류: {e}",
+  "act_err_adb_process": "[!] ADB 프로세스 실패: {e}"
 }

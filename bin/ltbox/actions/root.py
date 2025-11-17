@@ -4,6 +4,7 @@ import shutil
 import subprocess
 import sys
 import time
+import re
 from pathlib import Path
 from typing import Optional, Dict
 
@@ -17,15 +18,99 @@ from ..patch.root import patch_boot_with_root_algo
 from ..patch.avb import process_boot_image_avb
 from ..i18n import get_string
 
+def _patch_lkm_via_app(
+    dev: device.DeviceController,
+    work_dir: Path,
+    img_name: str
+) -> Optional[Path]:
+    print(get_string("act_check_ksu"))
+    downloader.download_ksu_apk(const.BASE_DIR)
+
+    ksu_apks = list(const.BASE_DIR.glob("*spoofed*.apk"))
+    if not ksu_apks:
+        print(get_string("act_skip_ksu"))
+        return None
+    
+    apk_path = ksu_apks[0]
+    print(get_string("act_install_ksu").format(name=apk_path.name))
+    try:
+        utils.run_command([str(const.ADB_EXE), "install", "-r", str(apk_path)])
+        print(get_string("act_ksu_ok"))
+    except Exception as e:
+        print(get_string("act_err_ksu").format(e=e))
+        print(get_string("act_root_anyway"))
+    
+    print(get_string("act_push_init_boot"))
+    local_img_path = work_dir / img_name
+    remote_img_path = f"/sdcard/{img_name}"
+    try:
+        utils.run_command([str(const.ADB_EXE), "push", str(local_img_path), remote_img_path])
+    except Exception as e:
+        print(get_string("act_err_push_init_boot").format(e=e))
+        return None
+    
+    print(get_string("act_prompt_patch_app"))
+    print(get_string("utils_press_enter"))
+    try:
+        input()
+    except EOFError:
+        raise RuntimeError(get_string('process_cancelled'))
+    
+    print(get_string("act_find_patched_file"))
+    try:
+        list_cmd = [str(const.ADB_EXE), "shell", "ls", "-t", "/sdcard/Downloads/kernelsu_patched_*.img"]
+        result = utils.run_command(list_cmd, capture=True, check=False)
+        
+        if result.returncode != 0 or not result.stdout.strip():
+            print(get_string("act_err_no_patched_files"))
+            return None
+
+        files = result.stdout.strip().splitlines()
+        latest_file_remote = files[0].strip()
+        
+        if not latest_file_remote:
+             print(get_string("act_err_no_patched_files"))
+             return None
+
+        print(get_string("act_pull_patched_file").format(file=latest_file_remote))
+        
+        final_path = const.BASE_DIR / "init_boot.root.img"
+        if final_path.exists():
+            final_path.unlink()
+        
+        utils.run_command([str(const.ADB_EXE), "pull", latest_file_remote, str(final_path)])
+        
+        if not final_path.exists():
+            print(get_string("act_err_pull_failed"))
+            return None
+            
+        return final_path
+
+    except Exception as e:
+        print(get_string("act_err_pull_process").format(e=e))
+        return None
+
 def root_boot_only(gki: bool = False) -> None:
     img_name = "boot.img" if gki else "init_boot.img"
     bak_name = "boot.bak.img" if gki else "init_boot.bak.img"
     out_dir = const.OUTPUT_ROOT_DIR if gki else const.OUTPUT_ROOT_LKM_DIR
     out_dir_name = const.OUTPUT_ROOT_DIR.name if gki else const.OUTPUT_ROOT_LKM_DIR.name
-    wait_prompt = get_string("act_prompt_boot") if gki else get_string("act_prompt_init_boot")
-    err_missing = get_string("act_err_boot_missing") if gki else get_string("act_err_init_boot_missing")
-    success_msg = get_string("act_root_saved") if gki else get_string("act_root_saved_lkm")
-    fail_msg = get_string("act_err_root_fail") if gki else get_string("act_err_root_fail_lkm")
+    
+    if gki:
+        wait_prompt_key = "act_prompt_boot"
+        success_msg_key = "act_root_saved"
+        fail_msg_key = "act_err_root_fail"
+        err_missing_key = "act_err_boot_missing"
+    else:
+        wait_prompt_key = "act_prompt_init_boot_app"
+        success_msg_key = "act_root_saved_lkm"
+        fail_msg_key = "act_err_root_fail_lkm"
+        err_missing_key = "act_err_init_boot_missing"
+
+    wait_prompt = get_string(wait_prompt_key)
+    success_msg = get_string(success_msg_key)
+    fail_msg = get_string(fail_msg_key)
+    err_missing = get_string(err_missing_key)
 
     print(get_string("act_clean_root_out").format(dir=out_dir_name))
     if out_dir.exists():
@@ -34,11 +119,6 @@ def root_boot_only(gki: bool = False) -> None:
     print()
     
     utils.check_dependencies()
-    magiskboot_exe = utils.get_platform_executable("magiskboot")
-    ensure_magiskboot()
-
-    if platform.system() != "Windows":
-        os.chmod(magiskboot_exe, 0o755)
 
     print(get_string("act_wait_boot") if gki else get_string("act_wait_init_boot"))
     const.IMAGE_DIR.mkdir(exist_ok=True) 
@@ -63,33 +143,48 @@ def root_boot_only(gki: bool = False) -> None:
     shutil.copy(boot_img, const.BASE_DIR / bak_name)
     print(get_string("act_backup_boot"))
 
+    patched_boot_path = None
+
     with utils.temporary_workspace(const.WORK_DIR):
         shutil.copy(boot_img, const.WORK_DIR / img_name)
         boot_img.unlink()
         
-        patched_boot_path = patch_boot_with_root_algo(const.WORK_DIR, magiskboot_exe, dev=None, gki=gki)
-
-        if patched_boot_path and patched_boot_path.exists():
-            print(get_string("act_finalize_root"))
-            final_boot_img = out_dir / img_name
-            
-            process_boot_image_avb(patched_boot_path, gki=gki)
-
-            print(get_string("act_move_root_final").format(dir=out_dir_name))
-            shutil.move(patched_boot_path, final_boot_img)
-
-            print(get_string("act_move_root_backup").format(dir=const.BACKUP_DIR.name))
-            const.BACKUP_DIR.mkdir(exist_ok=True)
-            for bak_file in const.BASE_DIR.glob(bak_name):
-                shutil.move(bak_file, const.BACKUP_DIR / bak_file.name)
-            print()
-
-            print("=" * 61)
-            print(get_string("act_success"))
-            print(success_msg.format(dir=out_dir_name))
-            print("=" * 61)
+        if gki:
+            magiskboot_exe = utils.get_platform_executable("magiskboot")
+            ensure_magiskboot()
+            if platform.system() != "Windows":
+                os.chmod(magiskboot_exe, 0o755)
+            patched_boot_path = patch_boot_with_root_algo(const.WORK_DIR, magiskboot_exe, dev=None, gki=True)
         else:
-            print(fail_msg, file=sys.stderr)
+            try:
+                dev = device.DeviceController(skip_adb=False)
+                dev.wait_for_adb()
+                patched_boot_path = _patch_lkm_via_app(dev, const.WORK_DIR, img_name)
+            except Exception as e:
+                print(get_string("act_err_adb_process").format(e=e), file=sys.stderr)
+                patched_boot_path = None
+
+    if patched_boot_path and patched_boot_path.exists():
+        print(get_string("act_finalize_root"))
+        final_boot_img = out_dir / img_name
+        
+        process_boot_image_avb(patched_boot_path, gki=gki)
+
+        print(get_string("act_move_root_final").format(dir=out_dir_name))
+        shutil.move(patched_boot_path, final_boot_img)
+
+        print(get_string("act_move_root_backup").format(dir=const.BACKUP_DIR.name))
+        const.BACKUP_DIR.mkdir(exist_ok=True)
+        for bak_file in const.BASE_DIR.glob(bak_name):
+            shutil.move(bak_file, const.BACKUP_DIR / bak_file.name)
+        print()
+
+        print("=" * 61)
+        print(get_string("act_success"))
+        print(success_msg.format(dir=out_dir_name))
+        print("=" * 61)
+    else:
+        print(fail_msg, file=sys.stderr)
 
 def root_device(dev: device.DeviceController, gki: bool = False) -> None:
     print(get_string("act_start_root"))
