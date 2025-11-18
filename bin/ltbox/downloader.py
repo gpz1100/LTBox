@@ -18,18 +18,21 @@ from ltbox.i18n import get_string, load_lang as i18n_load_lang
 from ltbox.errors import ToolError
 
 def download_resource(url: str, dest_path: Path) -> None:
-    import requests
+    import urllib.request
+    import shutil
+    from urllib.error import URLError, HTTPError
+
     msg = get_string("dl_downloading").format(filename=dest_path.name)
     print(msg)
     try:
-        with requests.get(url, stream=True, allow_redirects=True) as response:
-            response.raise_for_status()
-            with open(dest_path, 'wb') as f:
-                for chunk in response.iter_content(chunk_size=8192):
-                    f.write(chunk)
+        with urllib.request.urlopen(url) as response, open(dest_path, 'wb') as f:
+            if response.status < 200 or response.status >= 300:
+                 raise HTTPError(url, response.status, f"HTTP Error {response.status}", response.headers, None)
+            shutil.copyfileobj(response, f)
+
         msg_success = get_string("dl_download_success").format(filename=dest_path.name)
         print(msg_success)
-    except Exception as e:
+    except (HTTPError, URLError, OSError) as e:
         msg_err = get_string("dl_download_failed").format(url=url, error=e)
         print(msg_err, file=sys.stderr)
         if dest_path.exists():
