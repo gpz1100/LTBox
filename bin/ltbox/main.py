@@ -8,7 +8,7 @@ from pathlib import Path
 from datetime import datetime
 from typing import List, Tuple
 
-from . import i18n
+from . import downloader, i18n
 from .logger import logging_context
 
 APP_DIR = Path(__file__).parent.resolve()

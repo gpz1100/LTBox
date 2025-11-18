@@ -9,6 +9,7 @@ from typing import Optional, List, Dict
 
 from . import constants as const
 from . import utils
+from .errors import ToolError
 from .i18n import get_string
 
 class DeviceController:
