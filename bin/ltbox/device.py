@@ -141,49 +141,6 @@ class DeviceController:
             utils.run_command([str(const.FASTBOOT_EXE), "reboot"])
         except (subprocess.CalledProcessError, FileNotFoundError) as e:
             raise ToolError(get_string("device_err_reboot").format(e=e))
-            
-    def get_fastboot_vars(self) -> str:
-        print(get_string("device_rollback_header"))
-
-        if not self.skip_adb:
-            print(get_string("device_rebooting_fastboot"))
-            self.reboot_to_bootloader()
-            print(get_string("device_wait_10s_fastboot"))
-            time.sleep(10)
-        else:
-            print(get_string("device_skip_adb_on"))
-            print(get_string("device_manual_reboot_fastboot"))
-            print(get_string("device_press_enter_fastboot"))
-            try:
-                input()
-            except EOFError:
-                pass
-        
-        self.wait_for_fastboot()
-        
-        print(get_string("device_read_rollback"))
-        try:
-            result = utils.run_command([str(const.FASTBOOT_EXE), "getvar", "all"], capture=True, check=False)
-            output = result.stdout + "\n" + result.stderr
-            
-            if not self.skip_adb:
-                print(get_string("device_reboot_back_sys"))
-                self.fastboot_reboot_system()
-            else:
-                print(get_string("device_skip_adb_leave_fastboot"))
-                print(get_string("device_manual_next_steps"))
-            
-            return output
-        except (subprocess.CalledProcessError, FileNotFoundError) as e:
-            print(get_string("device_err_fastboot_vars").format(e=e), file=sys.stderr)
-            
-            if not self.skip_adb:
-                print(get_string("device_attempt_reboot_sys"))
-                try:
-                    self.fastboot_reboot_system()
-                except (ToolError, subprocess.CalledProcessError, FileNotFoundError):
-                    pass
-            raise ToolError(get_string("device_err_fastboot_vars").format(e=e))
 
     def check_edl_device(self, silent: bool = False) -> Optional[str]:
         if not silent:

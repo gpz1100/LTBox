@@ -150,7 +150,6 @@ def clean_workspace() -> None:
     ui.echo("-" * 50)
 
     folders_to_remove = [
-        const.INPUT_CURRENT_DIR, const.INPUT_NEW_DIR,
         const.OUTPUT_DIR, const.OUTPUT_ROOT_DIR, const.OUTPUT_DP_DIR, const.OUTPUT_ANTI_ROLLBACK_DIR,
         const.OUTPUT_ROOT_LKM_DIR,
         const.WORK_DIR,

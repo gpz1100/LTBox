@@ -41,8 +41,6 @@ BACKUP_BOOT_DIR = BASE_DIR / "backup_boot"
 BACKUP_INIT_BOOT_DIR = BASE_DIR / "backup_init_boot"
 WORKING_BOOT_DIR = BASE_DIR / "working_boot"
 
-INPUT_CURRENT_DIR = BASE_DIR / "input_current"
-INPUT_NEW_DIR = BASE_DIR / "input_new"
 OUTPUT_ANTI_ROLLBACK_DIR = BASE_DIR / "output_anti_rollback"
 
 IMAGE_DIR = BASE_DIR / "image"
