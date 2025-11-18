@@ -25,6 +25,22 @@ except ImportError:
         os.system("pause")
     sys.exit(1)
 
+def _check_platform():
+    if platform.system() != "Windows":
+        print("[!] Fatal Error: This tool is designed to run only on Windows.", file=sys.stderr)
+        print(f"    Current platform detected: {platform.system()}", file=sys.stderr)
+        print("[!] Aborting.", file=sys.stderr)
+        os.system("pause")
+        sys.exit(1)
+    
+    if platform.machine() != "AMD64":
+        print("[!] Fatal Error: This tool requires a 64-bit (AMD64) Windows environment.", file=sys.stderr)
+        print(f"    Current architecture detected: {platform.machine()}", file=sys.stderr)
+        print("[!] 32-bit (I386) or ARM64 builds are not supported.", file=sys.stderr)
+        print("[!] Aborting.", file=sys.stderr)
+        os.system("pause")
+        sys.exit(1)
+
 def setup_console():
     system = platform.system()
     if system == "Windows":
@@ -420,6 +436,7 @@ def prompt_for_language() -> str:
 
 def entry_point():
     try:
+        _check_platform()
         setup_console()
         
         is_info_mode = len(sys.argv) > 1 and sys.argv[1].lower() == 'info'
@@ -435,7 +452,7 @@ def entry_point():
 
         try:
             downloader.install_base_tools(lang_code)
-        except (subprocess.CalledProcessError, FileNotFoundError) as e:
+        except (subprocess.CalledProcessError, FileNotFoundError, ToolError) as e:
             print(get_string("critical_err_base_tools").format(e=e), file=sys.stderr)
             print(get_string("err_run_install_manually"), file=sys.stderr)
             if platform.system() == "Windows":

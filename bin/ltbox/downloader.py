@@ -158,8 +158,6 @@ def ensure_fetch() -> Path:
     
     asset_patterns = {
         'AMD64': "fetch_windows_amd64.exe",
-        'ARM64': "fetch_windows_amd64.exe",
-        'I386': "fetch_windows_386.exe"
     }
     arch = platform.machine()
     asset_name = asset_patterns.get(arch)
@@ -228,7 +226,6 @@ def ensure_avb_tools() -> None:
 def ensure_magiskboot() -> Path:
     asset_patterns = {
         'AMD64': "magiskboot-.*-windows-.*-x86_64-standalone\\.zip",
-        'ARM64': "magiskboot-.*-windows-.*-arm64-standalone\\.zip",
     }
     
     return _ensure_tool_from_github_release(
