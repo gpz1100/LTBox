@@ -2,7 +2,6 @@ import os
 import platform
 import subprocess
 import sys
-import json
 from pathlib import Path
 from datetime import datetime
 from typing import List, Tuple, Dict, Callable, Any
@@ -47,8 +46,6 @@ def setup_console():
             ctypes.windll.kernel32.SetConsoleTitleW(get_string("app_title"))
         except Exception as e:
             print(get_string("warn_set_console_title").format(e=e), file=sys.stderr)
-
-from .i18n import get_string
 
 def check_path_encoding():
     current_path = str(Path(__file__).parent.parent.resolve())

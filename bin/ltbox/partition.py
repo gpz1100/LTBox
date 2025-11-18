@@ -1,6 +1,3 @@
-import re
-import shutil
-import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Optional, List, Dict, Any

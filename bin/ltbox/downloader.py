@@ -6,7 +6,6 @@ import sys
 import zipfile
 import tarfile
 import re
-import json
 from pathlib import Path
 from typing import Dict, List, Optional
 

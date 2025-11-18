@@ -2,7 +2,6 @@ import hashlib
 import struct
 import sys
 from typing import Dict, Optional, Any
-from binascii import hexlify, unhexlify
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from .i18n import get_string
 
