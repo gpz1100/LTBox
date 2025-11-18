@@ -133,7 +133,7 @@ def patch_region_codes(replacement_code: str, target_map: Dict[str, Optional[str
         )
         
         if success:
-             pass
+             total_patched += 1
 
     print(get_string("img_patch_finish"))
     return total_patched
