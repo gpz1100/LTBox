@@ -280,5 +280,4 @@ def modify_xml(wipe: int = 0, skip_dp: bool = False) -> None:
     print("\n" + "=" * 61)
     print(get_string("act_success"))
     print(get_string("act_xml_ready").format(dir=const.OUTPUT_XML_DIR.name))
-    print(get_string("act_xml_next_step"))
     print("=" * 61)

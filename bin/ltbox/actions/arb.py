@@ -116,7 +116,6 @@ def patch_anti_rollback(comparison_result: Tuple[str, int, int]) -> None:
         print("\n" + "=" * 61)
         print(get_string("act_success"))
         print(get_string("act_arb_patched_ready").format(dir=const.OUTPUT_ANTI_ROLLBACK_DIR.name))
-        print(get_string("act_arb_next_step"))
         print("=" * 61)
 
     except Exception as e:
