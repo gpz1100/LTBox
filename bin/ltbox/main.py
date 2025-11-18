@@ -1,4 +1,3 @@
-import argparse
 import os
 import platform
 import subprocess
@@ -14,7 +13,6 @@ from .logger import logging_context
 APP_DIR = Path(__file__).parent.resolve()
 BASE_DIR = APP_DIR.parent
 PYTHON_EXE = BASE_DIR / "python3" / "python.exe"
-DOWNLOADER_PY = APP_DIR / "downloader.py"
 
 try:
     from .errors import ToolError
