@@ -9,12 +9,10 @@ import re
 from pathlib import Path
 from typing import Dict, List, Optional
 
-sys.path.insert(0, str(Path(__file__).parent.parent.resolve()))
-
-from ltbox import constants as const
-from ltbox import utils
-from ltbox.i18n import get_string, load_lang as i18n_load_lang
-from ltbox.errors import ToolError
+from . import constants as const
+from . import utils
+from .i18n import get_string, load_lang as i18n_load_lang
+from .errors import ToolError
 
 def download_resource(url: str, dest_path: Path) -> None:
     import urllib.request
