@@ -19,7 +19,7 @@ def download_resource(url: str, dest_path: Path) -> None:
     from urllib.error import URLError, HTTPError
 
     msg = get_string("dl_downloading").format(filename=dest_path.name)
-    print(msg)
+    utils.ui.echo(msg)
     try:
         with urllib.request.urlopen(url) as response, open(dest_path, 'wb') as f:
             if response.status < 200 or response.status >= 300:
@@ -27,17 +27,17 @@ def download_resource(url: str, dest_path: Path) -> None:
             shutil.copyfileobj(response, f)
 
         msg_success = get_string("dl_download_success").format(filename=dest_path.name)
-        print(msg_success)
+        utils.ui.echo(msg_success)
     except (HTTPError, URLError, OSError) as e:
         msg_err = get_string("dl_download_failed").format(url=url, error=e)
-        print(msg_err, file=sys.stderr)
+        utils.ui.error(msg_err)
         if dest_path.exists():
             dest_path.unlink()
         raise ToolError(get_string("dl_err_download_tool").format(name=dest_path.name))
 
 def extract_archive_files(archive_path: Path, extract_map: Dict[str, Path]) -> None:
     msg = get_string("dl_extracting").format(filename=archive_path.name)
-    print(msg)
+    utils.ui.echo(msg)
     try:
         is_tar = archive_path.suffix == '.gz' or archive_path.suffix == '.tar'
         
@@ -50,7 +50,7 @@ def extract_archive_files(archive_path: Path, extract_map: Dict[str, Path]) -> N
                         if f:
                             with open(target_path, "wb") as target:
                                 shutil.copyfileobj(f, target)
-                            print(get_string("dl_extracted_file").format(filename=target_path.name))
+                            utils.ui.echo(get_string("dl_extracted_file").format(filename=target_path.name))
         else:
             with zipfile.ZipFile(archive_path, 'r') as zf:
                 for member in zf.infolist():
@@ -58,17 +58,17 @@ def extract_archive_files(archive_path: Path, extract_map: Dict[str, Path]) -> N
                         target_path = extract_map[member.name]
                         with zf.open(member) as source, open(target_path, "wb") as target:
                             shutil.copyfileobj(source, target)
-                        print(get_string("dl_extracted_file").format(filename=target_path.name))
+                        utils.ui.echo(get_string("dl_extracted_file").format(filename=target_path.name))
                         
     except (zipfile.BadZipFile, tarfile.TarError, OSError, IOError) as e:
         msg_err = get_string("dl_extract_failed").format(filename=archive_path.name, error=e)
-        print(msg_err, file=sys.stderr)
+        utils.ui.error(msg_err)
         raise ToolError(get_string("dl_err_extract_tool").format(name=archive_path.name))
 
 def _run_fetch_command(args: List[str]) -> subprocess.CompletedProcess:
     fetch_exe = const.DOWNLOAD_DIR / "fetch.exe"
     if not fetch_exe.exists():
-        print(get_string("dl_fetch_not_found"))
+        utils.ui.echo(get_string("dl_fetch_not_found"))
         raise FileNotFoundError(get_string("dl_fetch_not_found"))
     
     command = [str(fetch_exe)] + args
@@ -85,18 +85,18 @@ def _ensure_tool_from_github_release(
     if tool_exe.exists():
         return tool_exe
 
-    print(get_string("dl_tool_not_found").format(tool_name=tool_exe.name))
+    utils.ui.echo(get_string("dl_tool_not_found").format(tool_name=tool_exe.name))
     const.DOWNLOAD_DIR.mkdir(exist_ok=True)
     
     arch = platform.machine()
     asset_pattern = asset_patterns.get(arch)
     if not asset_pattern:
         msg = get_string("dl_unsupported_arch").format(arch=arch, tool_name=tool_name)
-        print(msg, file=sys.stderr)
+        utils.ui.error(msg)
         raise ToolError(msg)
 
     msg = get_string("dl_detect_arch").format(arch=arch, pattern=asset_pattern)
-    print(msg)
+    utils.ui.echo(msg)
 
     try:
         fetch_command = [
@@ -137,12 +137,12 @@ def _ensure_tool_from_github_release(
                     shutil.rmtree(parent_dir, ignore_errors=True)
 
         downloaded_zip_path.unlink()
-        print(get_string("dl_tool_success").format(tool_name=tool_name))
+        utils.ui.echo(get_string("dl_tool_success").format(tool_name=tool_name))
         return tool_exe
 
     except (subprocess.CalledProcessError, FileNotFoundError, zipfile.BadZipFile, OSError, ToolError) as e:
         msg_err = get_string("dl_tool_failed").format(tool_name=tool_name, error=e)
-        print(msg_err, file=sys.stderr)
+        utils.ui.error(msg_err)
         raise ToolError(msg_err)
 
 def ensure_fetch() -> Path:
@@ -168,7 +168,7 @@ def ensure_platform_tools() -> None:
     if const.ADB_EXE.exists() and const.FASTBOOT_EXE.exists():
         return
     
-    print(get_string("dl_platform_not_found"))
+    utils.ui.echo(get_string("dl_platform_not_found"))
     const.DOWNLOAD_DIR.mkdir(exist_ok=True)
     temp_zip_path = const.DOWNLOAD_DIR / "platform-tools.zip"
     
@@ -187,11 +187,11 @@ def ensure_platform_tools() -> None:
                         shutil.copyfileobj(source, target)
                         
         temp_zip_path.unlink()
-        print(get_string("dl_platform_success"))
+        utils.ui.echo(get_string("dl_platform_success"))
         
     except (zipfile.BadZipFile, OSError, IOError) as e:
         msg_err = get_string("dl_platform_failed").format(error=e)
-        print(msg_err, file=sys.stderr)
+        utils.ui.error(msg_err)
         if temp_zip_path.exists():
             temp_zip_path.unlink()
         raise ToolError(msg_err)
@@ -203,7 +203,7 @@ def ensure_avb_tools() -> None:
     if const.AVBTOOL_PY.exists() and key1.exists() and key2.exists():
         return
 
-    print(get_string("dl_avb_not_found"))
+    utils.ui.echo(get_string("dl_avb_not_found"))
     const.DOWNLOAD_DIR.mkdir(exist_ok=True)
     temp_tar_path = const.DOWNLOAD_DIR / "avb.tar.gz"
     
@@ -217,7 +217,7 @@ def ensure_avb_tools() -> None:
 
     extract_archive_files(temp_tar_path, files_to_extract)
     temp_tar_path.unlink()
-    print(get_string("dl_avb_ready"))
+    utils.ui.echo(get_string("dl_avb_ready"))
 
 def ensure_magiskboot() -> Path:
     asset_patterns = {
@@ -233,7 +233,7 @@ def ensure_magiskboot() -> Path:
     )
 
 def get_gki_kernel(kernel_version: str, work_dir: Path) -> Path:
-    print(get_string("dl_gki_downloading"))
+    utils.ui.echo(get_string("dl_gki_downloading"))
     asset_pattern = f".*{kernel_version}.*Normal-AnyKernel3.zip"
     fetch_command = [
         "--repo", const.REPO_URL, "--tag", const.RELEASE_TAG,
@@ -243,36 +243,36 @@ def get_gki_kernel(kernel_version: str, work_dir: Path) -> Path:
 
     downloaded_files = list(work_dir.glob(f"*{kernel_version}*Normal-AnyKernel3.zip"))
     if not downloaded_files:
-        print(get_string("dl_gki_download_fail").format(version=kernel_version))
+        utils.ui.echo(get_string("dl_gki_download_fail").format(version=kernel_version))
         raise ToolError(get_string("dl_gki_download_fail").format(version=kernel_version))
     
     anykernel_zip = work_dir / const.ANYKERNEL_ZIP_FILENAME
     shutil.move(downloaded_files[0], anykernel_zip)
-    print(get_string("dl_gki_download_ok"))
+    utils.ui.echo(get_string("dl_gki_download_ok"))
 
-    print(get_string("dl_gki_extracting"))
+    utils.ui.echo(get_string("dl_gki_extracting"))
     extracted_kernel_dir = work_dir / "extracted_kernel"
     with zipfile.ZipFile(anykernel_zip, 'r') as zip_ref:
         zip_ref.extractall(extracted_kernel_dir)
     
     kernel_image = extracted_kernel_dir / "Image"
     if not kernel_image.exists():
-        print(get_string("dl_gki_image_missing"))
+        utils.ui.echo(get_string("dl_gki_image_missing"))
         raise ToolError(get_string("dl_gki_image_missing"))
-    print(get_string("dl_gki_extract_ok"))
+    utils.ui.echo(get_string("dl_gki_extract_ok"))
     return kernel_image
 
 def download_ksu_apk(target_dir: Path) -> None:
-    print(get_string("dl_ksu_downloading"))
+    utils.ui.echo(get_string("dl_ksu_downloading"))
     if list(target_dir.glob("*spoofed*.apk")):
-        print(get_string("dl_ksu_exists"))
+        utils.ui.echo(get_string("dl_ksu_exists"))
     else:
         ksu_apk_command = [
             "--repo", f"https://github.com/{const.KSU_APK_REPO}", "--tag", const.KSU_APK_TAG,
             "--release-asset", ".*spoofed.*\\.apk", str(target_dir)
         ]
         _run_fetch_command(ksu_apk_command)
-        print(get_string("dl_ksu_success"))
+        utils.ui.echo(get_string("dl_ksu_success"))
 
 def download_ksuinit(target_path: Path) -> None:
     if target_path.exists():
@@ -282,7 +282,7 @@ def download_ksuinit(target_path: Path) -> None:
     
     import requests
     msg = get_string("dl_downloading").format(filename="ksuinit")
-    print(msg)
+    utils.ui.echo(msg)
     try:
         with requests.get(url, stream=True, allow_redirects=True) as response:
             response.raise_for_status()
@@ -290,11 +290,11 @@ def download_ksuinit(target_path: Path) -> None:
                 for chunk in response.iter_content(chunk_size=8192):
                     f.write(chunk)
         msg_success = get_string("dl_download_success").format(filename="ksuinit")
-        print(msg_success)
+        utils.ui.echo(msg_success)
     
     except Exception as e:
         msg_err = get_string("dl_download_failed").format(url=url, error=e)
-        print(msg_err, file=sys.stderr)
+        utils.ui.error(msg_err)
         if target_path.exists():
             target_path.unlink()
         raise ToolError(get_string("dl_err_download_tool").format(name="ksuinit"))
@@ -302,14 +302,14 @@ def download_ksuinit(target_path: Path) -> None:
 def get_lkm_kernel(target_path: Path, kernel_version: str) -> None:
     if target_path.exists():
         target_path.unlink()
-    
+        
     if not kernel_version:
         raise ToolError("Kernel version is required for LKM download")
-        
-    print(get_string("dl_lkm_kver_found").format(ver=kernel_version))
+
+    utils.ui.echo(get_string("dl_lkm_kver_found").format(ver=kernel_version))
     
     asset_pattern_regex = f"android.*-{kernel_version}_kernelsu.ko"
-    print(get_string("dl_lkm_downloading").format(asset=asset_pattern_regex))
+    utils.ui.echo(get_string("dl_lkm_downloading").format(asset=asset_pattern_regex))
     
     fetch_command = [
         "--repo", f"https://github.com/{const.KSU_APK_REPO}",
@@ -321,8 +321,8 @@ def get_lkm_kernel(target_path: Path, kernel_version: str) -> None:
     try:
         _run_fetch_command(fetch_command)
     except (subprocess.CalledProcessError, FileNotFoundError) as e:
-        print(get_string("dl_lkm_download_fail").format(asset=asset_pattern_regex), file=sys.stderr)
-        print(f"[!] {e}", file=sys.stderr)
+        utils.ui.error(get_string("dl_lkm_download_fail").format(asset=asset_pattern_regex))
+        utils.ui.error(f"[!] {e}")
         raise ToolError(get_string("dl_lkm_download_fail").format(asset=asset_pattern_regex))
     
     downloaded_files = list(target_path.parent.glob(f"android*-{kernel_version}_kernelsu.ko"))
@@ -332,15 +332,15 @@ def get_lkm_kernel(target_path: Path, kernel_version: str) -> None:
     
     downloaded_file = downloaded_files[0]
     shutil.move(downloaded_file, target_path)
-    print(get_string("dl_lkm_download_ok"))
+    utils.ui.echo(get_string("dl_lkm_download_ok"))
 
 def install_base_tools(lang_code: str = "en"):
     i18n_load_lang(lang_code)
     
-    print(get_string("dl_base_installing"))
+    utils.ui.echo(get_string("dl_base_installing"))
     const.DOWNLOAD_DIR.mkdir(exist_ok=True)
     try:
-        print(get_string("utils_check_deps"))
+        utils.ui.echo(get_string("utils_check_deps"))
         req_path = const.BASE_DIR / "bin" / "requirements.txt"
         subprocess.run(
             [str(const.PYTHON_EXE), "-m", "pip", "install", "-r", str(req_path)],
@@ -350,10 +350,10 @@ def install_base_tools(lang_code: str = "en"):
         ensure_fetch()
         ensure_platform_tools()
         ensure_avb_tools()
-        print(get_string("dl_base_complete"))
+        utils.ui.echo(get_string("dl_base_complete"))
     except Exception as e:
         msg = get_string("dl_base_error").format(error=e)
-        print(msg, file=sys.stderr)
+        utils.ui.error(msg)
         input(get_string("press_enter_to_exit"))
         sys.exit(1)
 
