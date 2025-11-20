@@ -6,7 +6,7 @@ from typing import Optional
 
 from .. import constants as const
 from .. import utils, device, downloader
-from ..downloader import ensure_magiskboot, get_kernel_version_from_adb
+from ..downloader import ensure_magiskboot
 from ..errors import ToolError
 from ..partition import ensure_params_or_fail
 from .system import detect_active_slot_robust
@@ -177,7 +177,7 @@ def patch_root_image_file(gki: bool = False) -> None:
             try:
                 dev = device.DeviceController(skip_adb=False)
                 dev.wait_for_adb()
-                lkm_kernel_version = get_kernel_version_from_adb(dev)
+                lkm_kernel_version = dev.get_kernel_version()
                 patched_boot_path = _patch_lkm_via_app(dev, const.WORK_DIR, img_name)
             except Exception as e:
                 print(get_string("act_err_adb_process").format(e=e), file=sys.stderr)
@@ -282,7 +282,7 @@ def root_device(dev: device.DeviceController, gki: bool = False) -> None:
     if not gki:
         if not dev.skip_adb:
             try:
-                lkm_kernel_version = get_kernel_version_from_adb(dev)
+                lkm_kernel_version = dev.get_kernel_version()
             except Exception as e:
                 print(get_string("act_root_warn_lkm_kver_fail").format(e=e), file=sys.stderr)
                 print(get_string("act_root_warn_lkm_kver_retry"), file=sys.stderr)

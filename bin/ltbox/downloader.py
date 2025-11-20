@@ -274,24 +274,6 @@ def download_ksu_apk(target_dir: Path) -> None:
         _run_fetch_command(ksu_apk_command)
         print(get_string("dl_ksu_success"))
 
-def get_kernel_version_from_adb(dev: "device.DeviceController") -> str:
-    from ltbox import device
-    print(get_string("dl_lkm_get_kver"))
-    result = utils.run_command(
-        [str(const.ADB_EXE), "shell", "cat", "/proc/version"],
-        capture=True,
-        check=True
-    )
-    version_string = result.stdout.strip()
-    
-    match = re.search(r"Linux version (\d+\.\d+)", version_string)
-    if not match:
-        raise ToolError(get_string("dl_lkm_kver_fail").format(ver=version_string))
-    
-    kver = match.group(1)
-    print(get_string("dl_lkm_kver_found").format(ver=kver))
-    return kver
-
 def download_ksuinit(target_path: Path) -> None:
     if target_path.exists():
         target_path.unlink()
@@ -317,16 +299,14 @@ def download_ksuinit(target_path: Path) -> None:
             target_path.unlink()
         raise ToolError(get_string("dl_err_download_tool").format(name="ksuinit"))
 
-def get_lkm_kernel(dev: "device.DeviceController", target_path: Path, kernel_version_str: Optional[str] = None) -> None:
-    from ltbox import device
+def get_lkm_kernel(target_path: Path, kernel_version: str) -> None:
     if target_path.exists():
         target_path.unlink()
-        
-    kernel_version = kernel_version_str
+    
     if not kernel_version:
-        kernel_version = get_kernel_version_from_adb(dev)
-    else:
-        print(get_string("dl_lkm_kver_found").format(ver=kernel_version))
+        raise ToolError("Kernel version is required for LKM download")
+        
+    print(get_string("dl_lkm_kver_found").format(ver=kernel_version))
     
     asset_pattern_regex = f"android.*-{kernel_version}_kernelsu.ko"
     print(get_string("dl_lkm_downloading").format(asset=asset_pattern_regex))

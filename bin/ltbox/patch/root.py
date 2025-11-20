@@ -73,16 +73,17 @@ def patch_boot_with_root_algo(
             return None
         print(get_string("img_root_unpack_ok"))
 
-        if dev is None:
-            print(get_string("img_root_lkm_no_dev"), file=sys.stderr)
-            return None
-        
         print(get_string("img_root_lkm_download"))
         try:
             ksuinit_path = work_dir / "init"
             kmod_path = work_dir / "kernelsu.ko"
             downloader.download_ksuinit(ksuinit_path)
-            downloader.get_lkm_kernel(dev, kmod_path, lkm_kernel_version)
+            
+            if not lkm_kernel_version:
+                 print(get_string("img_root_lkm_no_dev"), file=sys.stderr)
+                 return None
+
+            downloader.get_lkm_kernel(kmod_path, lkm_kernel_version)
         except Exception as e:
             print(get_string("img_root_lkm_download_fail").format(e=e), file=sys.stderr)
             return None

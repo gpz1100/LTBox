@@ -61,6 +61,30 @@ class AdbManager:
         except (subprocess.CalledProcessError, FileNotFoundError) as e:
             raise ToolError(get_string("device_err_get_slot").format(e=e))
 
+    def get_kernel_version(self) -> str:
+        self.wait_for_device()
+        if self.skip_adb:
+             raise ToolError(get_string("dl_lkm_kver_fail").format(ver="SKIP_ADB"))
+        
+        print(get_string("dl_lkm_get_kver"))
+        try:
+            result = utils.run_command(
+                [str(const.ADB_EXE), "shell", "cat", "/proc/version"],
+                capture=True,
+                check=True
+            )
+            version_string = result.stdout.strip()
+            
+            match = re.search(r"Linux version (\d+\.\d+)", version_string)
+            if not match:
+                raise ToolError(get_string("dl_lkm_kver_fail").format(ver=version_string))
+            
+            ver = match.group(1)
+            print(get_string("dl_lkm_kver_found").format(ver=ver))
+            return ver
+        except (subprocess.CalledProcessError, FileNotFoundError) as e:
+             raise ToolError(get_string("dl_lkm_kver_fail").format(ver=str(e)))
+
     def reboot_edl(self) -> None:
         self.wait_for_device()
         if self.skip_adb:
@@ -333,6 +357,9 @@ class DeviceController:
 
     def get_active_slot_suffix_from_fastboot(self) -> Optional[str]:
         return self.fastboot.get_slot_suffix()
+        
+    def get_kernel_version(self) -> str:
+        return self.adb.get_kernel_version()
 
     def reboot_to_edl(self) -> None:
         self.adb.reboot_edl()
