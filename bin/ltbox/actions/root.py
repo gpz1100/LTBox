@@ -236,6 +236,8 @@ def root_boot_only(gki: bool = False) -> None:
         print(success_msg.format(dir=out_dir_name))
         if not gki:
             print(get_string("act_root_saved_vbmeta_lkm").format(name=vbmeta_img_name, dir=out_dir_name))
+        
+        print("\n" + get_string("act_root_manual_flash_notice"))
         print("=" * 61)
     else:
         print(fail_msg, file=sys.stderr)

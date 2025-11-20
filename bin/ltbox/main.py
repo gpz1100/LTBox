@@ -309,13 +309,13 @@ def print_root_menu(gki: bool):
 def root_menu(dev, command_map, gki: bool):
     if gki:
         actions_map = {
-            "1": ("root_boot_only_gki", get_string("task_title_root_file_gki")),
-            "2": ("root_device_gki", get_string("task_title_root_gki")),
+            "1": ("root_device_gki", get_string("task_title_root_gki")),
+            "2": ("root_boot_only_gki", get_string("task_title_root_file_gki")),
         }
     else:
         actions_map = {
-            "1": ("root_boot_only_lkm", get_string("task_title_root_file_lkm")),
-            "2": ("root_device_lkm", get_string("task_title_root_lkm")),
+            "1": ("root_device_lkm", get_string("task_title_root_lkm")),
+            "2": ("root_boot_only_lkm", get_string("task_title_root_file_lkm")),
         }
 
     while True:
